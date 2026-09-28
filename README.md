@@ -1,0 +1,80 @@
+# Santa Elena de Maipo Home · Reservas directas
+
+Sitio de reservas y panel de administración para el hostal. Sin dependencias en
+producción: Node.js 22 y su SQLite integrado.
+
+## Estructura
+
+| Carpeta | Qué contiene |
+|---|---|
+| `core/` | Lógica compartida: precios (`pricing.js`), reservas y disponibilidad (`service.js`), datos iniciales (`seed.js`). La usan el servidor y la demo, así ambos calculan igual. |
+| `server/` | Servidor HTTP, base de datos SQLite, Webpay Plus, acceso al panel, iCal con Booking, correos. |
+| `web/` | Sitio público (`app.js`), panel (`admin.js`), estilos e ilustraciones. |
+| `tests/` | 24 pruebas: precios, temporadas, descuentos, comisiones, reservas simultáneas, cancelación, cambios, pagos, seguridad del panel. |
+| `scripts/build-demo.mjs` | Genera `demo/index.html`, la versión sin servidor para revisar. |
+
+## Correr en local
+
+```bash
+PAYMENTS=simulado ADMIN_EMAIL=tu@correo.cl ADMIN_PASSWORD='una-clave-larga' npm start
+# sitio: http://localhost:3000   panel: http://localhost:3000/#/panel
+npm test
+```
+
+`PAYMENTS=simulado` reemplaza Webpay por una pasarela de prueba. Sin esa variable
+se usa Webpay en ambiente de integración con las credenciales públicas de prueba
+de Transbank.
+
+## Variables de entorno
+
+| Variable | Para qué |
+|---|---|
+| `BASE_URL` | Dirección pública con https, ej. `https://www.santaelenademaipo.cl`. Webpay devuelve al huésped a `BASE_URL/pago/retorno`. |
+| `DATA_DIR` | Carpeta persistente para la base de datos, las fotos y la clave de firma. |
+| `WEBPAY_ENV` | `integracion` (pruebas) o `produccion`. |
+| `WEBPAY_COMMERCE_CODE`, `WEBPAY_API_KEY` | Código de comercio y llave secreta que entrega Transbank para producción. |
+| `RESEND_API_KEY`, `MAIL_FROM` | Envío de correos de confirmación con Resend. Sin llave, los correos quedan en cola en el panel. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Crean el primer usuario del panel si no existe ninguno. También: `npm run admin:crear -- correo@dominio.cl`. |
+| `TRUST_PROXY` | `1` si el servidor está detrás de un proxy (Render, Nginx), para limitar intentos por IP real. |
+
+## Cómo se evita vender dos veces la misma noche
+
+Cada noche tomada es una fila en `night_locks` con clave primaria
+(habitación, noche). Reservar, bloquear y cambiar fechas escriben ahí dentro de
+una transacción `BEGIN IMMEDIATE`, así que si dos personas pagan la misma noche
+al mismo tiempo, la base de datos rechaza a la segunda (probado con 12 reservas
+simultáneas: gana una, 11 reciben aviso). Las reservas sin pagar apartan sus
+noches durante `holdMinutes` (15 por defecto) y luego se liberan solas.
+
+Con Booking se sincroniza por iCal cada 15 minutos; entre sincronizaciones puede
+quedar una ventana de minutos. Los choques quedan reportados en Ajustes.
+
+## Datos personales y pagos
+
+- Los datos de tarjeta los escribe el huésped en el formulario de Transbank. Aquí
+  solo se guarda el token de la transacción, código de autorización, tipo de
+  tarjeta y últimos 4 dígitos.
+- El huésped ve su reserva con su código y correo, o con un enlace firmado (HMAC).
+- Panel: contraseñas con scrypt, sesión en cookie HttpOnly + SameSite=Strict,
+  verificación de origen, límite de intentos de acceso, registro de acciones.
+- Cabeceras de seguridad (CSP, HSTS con https, X-Frame-Options).
+- Respaldo: copiar `DATA_DIR` (contiene `reservas.db`, `uploads/` y `.secret`).
+
+## Publicar en Render
+
+`render.yaml` deja el servicio listo (plan Starter con disco de 1 GB). Hay que
+completar `BASE_URL`, credenciales de Webpay y Resend, y apuntar el dominio.
+
+## Demo
+
+```bash
+npm i -D esbuild && npm run demo   # genera demo/index.html
+```
+
+## Demo en Vercel
+
+`vercel.json` publica la versión de demostración (pagos simulados, datos en el
+navegador de cada visitante). Al importar el repositorio en Vercel no hay que
+cambiar nada: instala con `npm install`, arma con `npm run demo` y publica la
+carpeta `demo/`. La versión real, con base de datos y Webpay, necesita disco
+permanente y va en Render (`render.yaml`).

@@ -1,0 +1,19 @@
+{
+  "name": "santa-elena-reservas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reservas directas para Santa Elena de Maipo Home (Temuco)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test tests/*.test.js",
+    "admin:crear": "node --disable-warning=ExperimentalWarning server/cli.js crear-admin",
+    "demo": "node scripts/build-demo.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

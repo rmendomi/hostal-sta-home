@@ -1,0 +1,38 @@
+# Despliegue en Render (https://render.com). Crea el servicio desde este archivo
+# y completa las variables marcadas sync: false en el panel de Render.
+services:
+  - type: web
+    name: santa-elena-reservas
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: "true"
+    startCommand: npm start
+    healthCheckPath: /salud
+    disk:
+      name: datos
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+      - key: TRUST_PROXY
+        value: "1"
+      - key: BASE_URL
+        sync: false   # ej.: https://www.santaelenademaipo.cl
+      - key: WEBPAY_ENV
+        value: integracion   # cambiar a produccion cuando Transbank entregue las llaves
+      - key: WEBPAY_COMMERCE_CODE
+        sync: false
+      - key: WEBPAY_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false   # ej.: Santa Elena de Maipo Home <reservas@santaelenademaipo.cl>
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false   # solo para crear el primer usuario; luego cámbiala desde el panel
