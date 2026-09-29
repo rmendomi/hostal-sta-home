@@ -1,6 +1,6 @@
 # Publicar el sitio en NinjaHosting (paso a paso)
 
-Todo se hace desde cPanel y FileZilla: el plan no tiene SSH ni Git.
+Todo se hace desde cPanel (o FileZilla): el plan no tiene SSH ni Git.
 **Nunca compartas tu contraseña de cPanel en el chat.**
 
 En estas instrucciones, `USUARIO` es tu usuario de cPanel (aparece arriba a la
@@ -19,30 +19,36 @@ Abre un ticket en NinjaHosting:
 cPanel → **SSL/TLS Status** → marca `hostalsantaelena.cl` y
 `www.hostalsantaelena.cl` → **Run AutoSSL**. Puede tardar unos minutos.
 
-## 3. Bajar el código
+## 3. Subir el código
 
-En https://github.com/rmendomi/hostal-sta-home → botón verde **Code** →
-**Download ZIP**. Descomprímelo en tu computador.
+Hay dos caminos; usa uno.
 
-## 4. Subir el código con FileZilla
+### A. Administrador de archivos de cPanel (más simple)
 
-1. FileZilla → Archivo → **Gestor de sitios** → Nuevo sitio:
-   - Protocolo: FTP. Servidor: `ftp.hostalsantaelena.cl`. Puerto: `21`.
-   - Cifrado: **Requiere FTP explícito sobre TLS**.
-   - Modo de acceso: Normal, con tu usuario y contraseña de cPanel (o una
-     cuenta creada en cPanel → Cuentas FTP con directorio `/home/USUARIO`).
-   - Conectar. Si pregunta por el certificado, acéptalo.
-2. En el panel derecho (servidor) quédate en `/home/USUARIO`, **no** entres a
-   `public_html`.
-3. Crea dos carpetas: `hostalsantaelena-app` y `santaelena-data`.
-4. Entra a `hostalsantaelena-app` y sube desde tu computador:
-   - `app.cjs`
-   - `package.json`
-   - las carpetas `core`, `server` y `web`
+1. Descarga el paquete `hostalsantaelena-app.zip` (lo entrega Claude en el
+   proyecto; contiene solo lo necesario: `app.cjs`, `package.json`, `core`,
+   `server` y `web`).
+2. cPanel → **Administrador de archivos**. Estás en `/home/USUARIO`.
+3. Crea las carpetas `hostalsantaelena-app` y `santaelena-data` (botón
+   "+ Carpeta"). No las crees dentro de `public_html`.
+4. Entra a `hostalsantaelena-app` → **Cargar** → sube el ZIP.
+5. Vuelve, marca el ZIP → **Extraer** → destino `/home/USUARIO/hostalsantaelena-app`.
+   Debe quedar `app.cjs` directamente dentro de `hostalsantaelena-app`.
+6. Borra el ZIP. `santaelena-data` queda vacía: la aplicación la llena sola.
 
+### B. FileZilla
+
+1. En https://github.com/rmendomi/hostal-sta-home → **Code** → **Download ZIP**
+   y descomprímelo en tu computador.
+2. FileZilla → Archivo → **Gestor de sitios** → Nuevo sitio: Servidor
+   `ftp.hostalsantaelena.cl`, puerto `21`, cifrado **Requiere FTP explícito
+   sobre TLS**, tu usuario y contraseña de cPanel.
+3. En el servidor quédate en `/home/USUARIO` (no en `public_html`), crea
+   `hostalsantaelena-app` y `santaelena-data`, y sube a `hostalsantaelena-app`:
+   `app.cjs`, `package.json` y las carpetas `core`, `server` y `web`.
    No subas `node_modules`, `.git`, `demo`, `docs`, `tests` ni `scripts`.
 
-## 5. Crear la aplicación Node.js
+## 4. Crear la aplicación Node.js
 
 cPanel → **Setup Node.js App** → **Create Application**:
 
@@ -69,7 +75,7 @@ En "Environment variables" → **Add variable**, una por una:
 Aprieta **Create**. "Run NPM Install" no es necesario: el sistema no usa
 paquetes externos. Luego **Restart**.
 
-## 6. Revisar y limpiar
+## 5. Revisar y limpiar
 
 1. Abre https://hostalsantaelena.cl: deben aparecer las 5 habitaciones.
 2. Entra al panel: https://hostalsantaelena.cl/#/panel con tu correo y contraseña.
@@ -80,12 +86,12 @@ paquetes externos. Luego **Restart**.
 Si en vez del sitio aparece "El sitio no pudo iniciar", la página dice qué
 revisar (casi siempre la ruta de `DATA_DIR`).
 
-## 7. Tareas programadas
+## 6. Tareas programadas
 
 cPanel → **Cron Jobs**: agrega las 4 líneas de [CRON.md](CRON.md) con tu
 `TAREAS_SECRET`.
 
-## 8. Poner tus datos reales
+## 7. Poner tus datos reales
 
 En el panel:
 - **Tarifas**: el precio real de cada habitación y la cabaña → Guardar (se quita "Estimada").
@@ -95,7 +101,7 @@ En el panel:
 - **Cobros**: anticipo, cancelación y plazos.
 - **Ajustes**: correo de contacto, razón social y RUT.
 
-## 9. Probar un pago (sin cobrar)
+## 8. Probar un pago (sin cobrar)
 
 Haz una reserva en el sitio. En Webpay de prueba usa la tarjeta de prueba de
 Transbank: VISA `4051 8856 0044 6623`, CVV `123`, cualquier fecha futura;
@@ -104,9 +110,9 @@ comisión y neto.
 
 ## Actualizar el sitio más adelante
 
-1. Baja el ZIP nuevo de GitHub.
-2. Con FileZilla sube a `hostalsantaelena-app` las carpetas y archivos que
-   cambiaron (acepta sobrescribir).
+1. Descarga el `hostalsantaelena-app.zip` nuevo (o el ZIP de GitHub).
+2. Súbelo a `hostalsantaelena-app` y extráelo encima (acepta sobrescribir),
+   con el Administrador de archivos o con FileZilla.
 3. cPanel → Setup Node.js App → **Restart**.
 
 Nunca borres ni reemplaces `santaelena-data`: ahí están las reservas.
