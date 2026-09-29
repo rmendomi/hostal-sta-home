@@ -47,7 +47,7 @@ async function seedExamples(svc, payments, store) {
   const b4 = svc.admin.createBooking({ checkin: d(3), checkout: d(4), items: [{ roomId: 'hab-twin', adults: 1 }], guest: ex('Jorge', 'Painemal', 4), notesInternal: 'Reservó por teléfono. Paga en efectivo.' });
   const row = svc.admin.bookings({ q: b4.code })[0];
   svc.admin.recordPayment(row.id, { amount: 20000, method: 'transferencia', note: 'Abono por transferencia' });
-  svc.admin.createBlock({ roomId: 'hab-privado', from: d(1), to: d(3), reason: 'Booking: reserva de ejemplo', source: 'ical', externalId: 'demo' });
+  svc.admin.createBlock({ roomId: 'hab-privado', from: d(1), to: d(3), reason: 'Mantención' });
   const b5 = svc.createBooking({ checkin: d(25), checkout: d(27), items: [{ roomId: 'hab-privado', adults: 2 }], guest: ex('Valentina', 'Muñoz', 5), acceptTerms: true });
   await pay(b5, 'debit');
   await svc.cancelBooking(b5.code, ex('', '', 5).email, { reason: 'Cambio de planes (ejemplo)' });
@@ -99,8 +99,6 @@ export async function createDemoBackend() {
       if (m === 'logout') { loggedIn = false; try { sessionStorage.removeItem('se-demo-admin'); } catch { /* nada */ } return { ok: true }; }
       if (m === 'me') return { admin: { email: 'rene@demo', name: 'Rene' }, environment: 'simulado', server: false };
       if (m === 'upload') return { url: a.dataUrl, name: a.name };
-      if (m === 'icalLinks') return { links: store.list('rooms').map((r) => ({ roomId: r.id, name: r.name, url: `https://tu-dominio.cl/ical/${r.id}.ics?k=…` })), lastSync: null, demo: true };
-      if (m === 'icalSync') return { report: [], demo: true };
       if (m === 'changePassword' || m === 'sendQueuedEmails') return { ok: true, demo: true };
       if (m === 'resetDemo') { await fresh(); return { ok: true }; }
       if (!Object.hasOwn(rpc.adminApi, m)) throw new ServiceError('x', 'No encontrado', 404);

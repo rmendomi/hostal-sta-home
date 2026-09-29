@@ -8,7 +8,6 @@
 | Cálculo de precios, anticipo, saldo, IVA y comisiones | **Operativo.** Probado con casos reales de temporada, descuento, persona extra y niños. |
 | Panel: reservas, calendario, habitaciones, fotos, tarifas, cobros | **Operativo.** |
 | Pago con Webpay Plus | **Programado según la API de Transbank, falta conectarlo.** En la demo el pago es simulado. |
-| Sincronización con Booking (iCal) | **Operativa en el servidor.** En la demo los enlaces son de ejemplo. |
 | Correos de confirmación | **Listos; falta la cuenta de envío.** Mientras tanto quedan en cola en el panel. |
 | Habitaciones, camas, baños, servicios y hora de salida | **Datos reales**, confirmados por la familia. |
 | Tarifas por noche | **Estimadas.** Aparecen como "Estimada" en Tarifas hasta que pongas el precio real y guardes. |
@@ -28,8 +27,8 @@ La demo guarda todo en tu navegador. Para volver al inicio: Panel → Ajustes �
 - **Calendario**: una fila por habitación. Toca una noche libre para bloquearla (mantención, uso propio) o crear una reserva.
 - **Habitaciones**: nombre, descripción, camas, capacidad, fotos (se achican solas al subirlas). Marca "Revisé estos datos" cuando estén correctos.
 - **Tarifas**: tarifa base por noche, temporadas (sube o baja un %), descuentos (se aplica solo el mejor) y cargos extra. El simulador muestra exactamente lo que verá y pagará un huésped.
-- **Cobros**: anticipo, cancelación y plazos; resumen de lo cobrado, comisiones de Webpay, devoluciones y neto. Si ingresas la comisión que te cobra Booking, calcula cuánto habrías pagado vendiendo lo mismo por Booking.
-- **Ajustes**: datos del hostal, reglas de la casa, enlaces de calendario con Booking y contraseña.
+- **Cobros**: anticipo, cancelación y plazos; resumen de lo cobrado, comisiones de Webpay, devoluciones y neto.
+- **Ajustes**: datos del hostal, reglas de la casa, respaldos, correo y contraseña.
 
 ## Cómo se calcula lo que paga el huésped
 
@@ -49,7 +48,6 @@ La comisión de Webpay la pagas tú, no el huésped. El sitio se lo explica y en
 | Hosting NinjaHosting Wako | $59.900 + IVA al año | [NinjaHosting](https://www.ninjahosting.cl/web-hosting-chile) |
 | Dominio .cl | $9.990 al año | [NIC Chile](https://www.nic.cl/dominios/tarifas.html) |
 | Correos (Resend) | Gratis hasta 3.000 al mes y 100 al día | [Resend](https://resend.com/pricing) |
-| Sincronización con Booking | Gratis (iCal) | |
 
 Ejemplo: una reserva de 2 noches en la Habitación doble ($76.000 con la tarifa estimada) con anticipo de $22.800 pagado con débito deja una comisión de $475 (IVA incluido). El saldo de $53.200 pagado en efectivo no tiene comisión.
 
@@ -62,5 +60,4 @@ Como comparación: Flow cobra 2,89 % + IVA ([Flow](https://web.flow.cl/es-cl/tar
 3. **Transbank**: contratar Webpay Plus. Si no tienes inicio de actividades en el SII, cada pago queda limitado a $200.000. Transbank valida la integración antes de entregar el código de comercio y la llave de producción.
 4. **Publicar en NinjaHosting**: seguir [docs/DESPLIEGUE-NINJAHOSTING.md](docs/DESPLIEGUE-NINJAHOSTING.md) (hosting Wako y dominio hostalsantaelena.cl ya contratados).
 5. **Correo**: crear cuenta gratuita en Resend y verificar el dominio para que los correos no lleguen a spam.
-6. **Booking**: pegar los enlaces de calendario en la extranet de Booking y en el panel.
-7. **Textos legales**: revisar con tu contador si emites boleta electrónica y si aplicará la exención de IVA a turistas extranjeros.
+6. **Textos legales**: revisar con tu contador si emites boleta electrónica y si aplicará la exención de IVA a turistas extranjeros.

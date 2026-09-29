@@ -10,7 +10,6 @@ Reemplaza `TU-FRASE` por tu `TAREAS_SECRET`.
 
 | Qué hace | Minuto | Hora | Día | Mes | Día semana | Comando |
 |---|---|---|---|---|---|---|
-| Sincronizar con Booking | `*/15` | `*` | `*` | `*` | `*` | `curl -fsS --max-time 60 -X POST -H "X-Tarea-Clave: TU-FRASE" https://hostalsantaelena.cl/tareas/ical > /dev/null` |
 | Enviar correos en cola | `*/5` | `*` | `*` | `*` | `*` | `curl -fsS --max-time 60 -X POST -H "X-Tarea-Clave: TU-FRASE" https://hostalsantaelena.cl/tareas/correos > /dev/null` |
 | Liberar reservas no pagadas | `*/5` | `*` | `*` | `*` | `*` | `curl -fsS --max-time 60 -X POST -H "X-Tarea-Clave: TU-FRASE" https://hostalsantaelena.cl/tareas/vencer > /dev/null` |
 | Respaldo diario de la base | `0` | `4` | `*` | `*` | `*` | `curl -fsS --max-time 120 -X POST -H "X-Tarea-Clave: TU-FRASE" https://hostalsantaelena.cl/tareas/respaldo > /dev/null` |
@@ -18,5 +17,5 @@ Reemplaza `TU-FRASE` por tu `TAREAS_SECRET`.
 Arriba de la lista de Cron Jobs, en "Cron Email", puedes dejar tu correo: si
 una tarea falla, cPanel te avisa (con `-fsS` solo escribe cuando hay error).
 
-Para comprobar que funcionan: Panel → Ajustes muestra la última sincronización
-con Booking y la lista de respaldos.
+Para comprobar que funcionan: Panel → Ajustes muestra la lista de respaldos
+(aparece uno nuevo cada día).

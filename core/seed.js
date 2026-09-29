@@ -49,7 +49,6 @@ export function seedSettings({ demo = false } = {}) {
     cancellation: { freeUntilDays: 7 },
     modification: { freeUntilDays: 3 },
     payment: { ...PROVIDER_WEBPAY },
-    otaComparison: { bookingCommissionPct: null },
     houseRules: [
       'Llegada desde las 15:00 y salida hasta las 11:00.',
       'No se admiten mascotas.',
@@ -57,7 +56,6 @@ export function seedSettings({ demo = false } = {}) {
       'No se permiten fiestas ni eventos.',
       'Niños de cualquier edad son bienvenidos. Menores de 12 años no pagan usando las camas existentes.',
     ],
-    ical: {},
     dataStatus: 'por_confirmar',
   };
 }

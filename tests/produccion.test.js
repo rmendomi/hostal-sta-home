@@ -53,7 +53,7 @@ test('tareas programadas: protegidas por clave', async () => {
     assert.equal((await post(s.base, '/tareas/vencer', {}, { 'X-Tarea-Clave': 'otra' })).status, 403);
     assert.equal((await fetch(s.base + '/tareas/vencer', { headers: { 'X-Tarea-Clave': 'una-frase-larga-de-prueba' } })).status, 405);
     assert.equal((await post(s.base, '/tareas/nada', {}, { 'X-Tarea-Clave': 'una-frase-larga-de-prueba' })).status, 404);
-    for (const t of ['vencer', 'correos', 'ical']) {
+    for (const t of ['vencer', 'correos']) {
       const r = await post(s.base, `/tareas/${t}`, {}, { 'X-Tarea-Clave': 'una-frase-larga-de-prueba' });
       assert.equal(r.status, 200, t);
     }

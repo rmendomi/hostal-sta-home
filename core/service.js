@@ -631,7 +631,6 @@ export function createService({ store, now = () => new Date(), random = Math.ran
       const feesVat = sum(online, 'feeVat');
       const refunded = sum(refunds, 'amount');
       const net = gross - fees - feesVat - refunded;
-      const ota = s.otaComparison?.bookingCommissionPct;
       return {
         from, to,
         gross, online: sum(online, 'amount'), atProperty: sum(atProperty, 'amount'),
@@ -641,7 +640,6 @@ export function createService({ store, now = () => new Date(), random = Math.ran
         bookingsCreated: booked.length,
         bookingsCancelled: booked.filter((b) => b.status === 'cancelada').length,
         nightsSold, capacity, occupancyPct: capacity ? (nightsSold / capacity) * 100 : 0,
-        otaComparison: ota ? { pct: ota, wouldPay: Math.round((gross - refunded) * ota / 100), saved: Math.round((gross - refunded) * ota / 100) - fees - feesVat } : null,
         byMethod: ['webpay', 'efectivo', 'transferencia', 'pos', 'otro'].map((m) => ({ method: m, amount: sum(charged.filter((p) => p.method === m), 'amount') })).filter((x) => x.amount),
       };
     },

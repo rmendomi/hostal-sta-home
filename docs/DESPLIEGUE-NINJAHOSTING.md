@@ -88,7 +88,7 @@ revisar (casi siempre la ruta de `DATA_DIR`).
 
 ## 6. Tareas programadas
 
-cPanel → **Cron Jobs**: agrega las 4 líneas de [CRON.md](CRON.md) con tu
+cPanel → **Cron Jobs**: agrega las 3 líneas de [CRON.md](CRON.md) con tu
 `TAREAS_SECRET`.
 
 ## 7. Poner tus datos reales

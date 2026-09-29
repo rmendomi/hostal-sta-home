@@ -8,9 +8,9 @@ producción: Node.js 22 y su SQLite integrado.
 | Carpeta | Qué contiene |
 |---|---|
 | `core/` | Lógica compartida: precios (`pricing.js`), reservas y disponibilidad (`service.js`), datos iniciales (`seed.js`). La usan el servidor y la demo, así ambos calculan igual. |
-| `server/` | Servidor HTTP, base de datos SQLite, Webpay Plus, acceso al panel, iCal con Booking, correos. |
+| `server/` | Servidor HTTP, base de datos SQLite, Webpay Plus, acceso al panel, correos, respaldos. |
 | `web/` | Sitio público (`app.js`), panel (`admin.js`), estilos e ilustraciones. |
-| `tests/` | 31 pruebas: precios, temporadas, descuentos, comisiones, reservas simultáneas (también entre dos procesos), cancelación, cambios, pagos, seguridad del panel, tareas programadas y respaldos. |
+| `tests/` | 30 pruebas: precios, temporadas, descuentos, comisiones, reservas simultáneas (también entre dos procesos), cancelación, cambios, pagos, seguridad del panel, tareas programadas y respaldos. |
 | `app.cjs` | Archivo de inicio para cPanel (Setup Node.js App). |
 | `scripts/build-demo.mjs` | Genera `demo/index.html`, la versión sin servidor para revisar. |
 
@@ -38,7 +38,7 @@ de Transbank.
 | `WEBPAY_COMMERCE_CODE`, `WEBPAY_API_KEY` | Código de comercio y llave secreta que entrega Transbank para producción. |
 | `RESEND_API_KEY`, `MAIL_FROM` | Envío de correos de confirmación con Resend. Sin llave, los correos quedan en cola en el panel. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Crean el primer usuario del panel si no existe ninguno. También: `npm run admin:crear -- correo@dominio.cl`. |
-| `TAREAS_SECRET` | Activa las rutas `/tareas/ical`, `/tareas/correos`, `/tareas/vencer` y `/tareas/respaldo` (POST con cabecera `X-Tarea-Clave`) para llamarlas desde cron, y apaga los relojes internos. Ver `docs/CRON.md`. |
+| `TAREAS_SECRET` | Activa las rutas `/tareas/correos`, `/tareas/vencer` y `/tareas/respaldo` (POST con cabecera `X-Tarea-Clave`) para llamarlas desde cron, y apaga los relojes internos. Ver `docs/CRON.md`. |
 | `INICIAR_BASE` | `1` la primera vez para cargar los datos reales del hostal si la base está vacía. |
 | `TRUST_PROXY` | `1` si el servidor está detrás de un proxy (Render, Nginx), para limitar intentos por IP real. |
 
@@ -51,8 +51,9 @@ al mismo tiempo, la base de datos rechaza a la segunda (probado con 12 reservas
 simultáneas: gana una, 11 reciben aviso). Las reservas sin pagar apartan sus
 noches durante `holdMinutes` (15 por defecto) y luego se liberan solas.
 
-Con Booking se sincroniza por iCal cada 15 minutos; entre sincronizaciones puede
-quedar una ventana de minutos. Los choques quedan reportados en Ajustes.
+El sitio es el único canal de venta: no se conecta con Booking ni con otras
+agencias. Las noches que se venden por fuera se cierran a mano en el panel
+(Calendario → Bloquear).
 
 ## Datos personales y pagos
 

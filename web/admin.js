@@ -322,7 +322,7 @@ async function viewCalendar(main) {
   let start = addDays(ctx.info.today, -2);
   const DAYS = 28;
   main.innerHTML = html`${head('Calendario', 'Cada fila es una habitación. Toca una noche libre para bloquearla o crear una reserva.', html`<div class="row"><button class="icon-btn" id="cp" aria-label="Semanas anteriores">${icon('left')}</button><button class="btn btn-ghost btn-sm" id="ct">Hoy</button><button class="icon-btn" id="cn" aria-label="Semanas siguientes">${icon('right')}</button></div>`)}
-    <div class="cal-legend"><span><i class="lg-b lg-conf"></i>Confirmada</span><span><i class="lg-b lg-pend"></i>Esperando pago</span><span><i class="lg-b lg-stay"></i>En estadía</span><span><i class="lg-b lg-block"></i>Bloqueo o Booking</span></div>
+    <div class="cal-legend"><span><i class="lg-b lg-conf"></i>Confirmada</span><span><i class="lg-b lg-pend"></i>Esperando pago</span><span><i class="lg-b lg-stay"></i>En estadía</span><span><i class="lg-b lg-block"></i>Bloqueo</span></div>
     <div class="cal-wrap" id="cal"></div>`;
   const draw = async () => {
     const to = addDays(start, DAYS - 1);
@@ -365,8 +365,7 @@ async function viewCalendar(main) {
     if (bl) {
       const cal = await A('calendar', { from: start, to: addDays(start, DAYS) });
       const block = cal.blocks.find((x) => x.id === bl.dataset.bl);
-      const isIcal = block?.source === 'ical';
-      if (await confirmSheet({ title: isIcal ? 'Reserva importada de Booking' : 'Quitar bloqueo', body: html`<p>${block?.reason || ''} · ${human(block.from)} a ${human(block.to)} (última noche).</p>${isIcal ? html`<p class="muted">Viene del calendario de Booking. Si la quitas aquí, volverá en la próxima sincronización mientras siga en Booking.</p>` : ''}`.toString(), confirm: 'Quitar bloqueo', danger: true })) {
+      if (await confirmSheet({ title: 'Quitar bloqueo', body: html`<p>${block?.reason || ''} · ${human(block.from)} a ${human(block.to)} (última noche).</p>`.toString(), confirm: 'Quitar bloqueo', danger: true })) {
         await A('removeBlock', { id: bl.dataset.bl }); toast('Bloqueo quitado'); draw();
       }
       return;
@@ -648,7 +647,6 @@ async function viewMoney(main) {
             <div class="field"><label for="p-deb">Comisión débito (%)</label><input id="p-deb" name="debit" inputmode="decimal" value="${(pay.rates.debit * 100).toFixed(2).replace('.', ',')}"></div>
             <div class="field"><label for="p-cre">Comisión crédito (%)</label><input id="p-cre" name="credit" inputmode="decimal" value="${(pay.rates.credit * 100).toFixed(2).replace('.', ',')}"></div>
             <div class="field"><label for="p-uf">Valor UF (CLP)</label><input id="p-uf" name="ufValue" inputmode="numeric" value="${pay.ufValue}"><p class="hint">Solo afecta la comisión mínima de pagos muy pequeños.</p></div>
-            <div class="field"><label for="p-ota">Comisión que te cobra Booking (%)</label><input id="p-ota" name="ota" inputmode="decimal" value="${s.otaComparison?.bookingCommissionPct ?? ''}" placeholder="Ej.: la de tu extranet"><p class="hint">Para comparar cuánto habrías pagado vendiendo lo mismo por Booking.</p></div>
           </div>
           <p class="hint">Cambia las comisiones solo si Transbank te confirma otra tarifa. Afectan las estimaciones; lo real se calcula con el tipo de tarjeta de cada pago.</p>
           <div class="row-end"><button class="btn btn-soft">Guardar</button></div>
@@ -659,10 +657,9 @@ async function viewMoney(main) {
       <h2 class="h4">Costos de operación</h2>
       <table class="tbl"><tbody>
         <tr><td>Webpay Plus (Transbank)</td><td>Sin mensualidad. Solo comisión por venta: ${pctFmt(pay.rates.debit)} débito, ${pctFmt(pay.rates.credit)} crédito, más IVA.</td></tr>
-        <tr><td>Servidor</td><td>Render Starter USD 7 al mes más disco de 1 GB a USD 0,25 (unos $7.000 al mes con el dólar del 25-09-2026).</td></tr>
+        <tr><td>Hosting</td><td>NinjaHosting plan Wako, $59.900 + IVA al año.</td></tr>
         <tr><td>Dominio .cl</td><td>$9.990 al año en NIC Chile.</td></tr>
         <tr><td>Correo de confirmaciones</td><td>Resend, plan gratuito hasta 3.000 correos al mes.</td></tr>
-        <tr><td>Sincronización con Booking</td><td>Por calendarios iCal, sin costo.</td></tr>
       </tbody></table>
     </section>`;
 
@@ -682,7 +679,6 @@ async function viewMoney(main) {
       <div class="money-side">
         <div class="kpi"><span>Costo efectivo de cobrar en línea</span><strong>${x.online ? `${x.effectiveFeePct.toLocaleString('es-CL', { maximumFractionDigits: 2 })} %` : '—'}</strong><em>Comisión + IVA sobre lo cobrado con Webpay</em></div>
         <div class="kpi"><span>Saldos por cobrar al llegar</span><strong>${clp(x.pendingBalances)}</strong><em>De reservas confirmadas</em></div>
-        ${x.otaComparison ? html`<div class="kpi kpi-main"><span>Vendiendo lo mismo en Booking (${x.otaComparison.pct} %)</span><strong>${clp(x.otaComparison.wouldPay)}</strong><em>Diferencia a favor del canal directo: ${clp(x.otaComparison.saved)}</em></div>` : html`<div class="kpi"><span>Comparación con Booking</span><strong>—</strong><em>Ingresa tu comisión de Booking abajo para verla.</em></div>`}
         <div class="kpi"><span>Reservas creadas · canceladas</span><strong>${x.bookingsCreated} · ${x.bookingsCancelled}</strong><em>Ocupación ${Math.round(x.occupancyPct)} %</em></div>
       </div>
     </div>`;
@@ -702,7 +698,7 @@ async function viewMoney(main) {
     const f = Object.fromEntries(new FormData(e.target));
     const dec = (v) => +String(v).replace(',', '.');
     try {
-      await A('saveSettings', { patch: { payment: { rates: { debit: dec(f.debit) / 100, prepaid: dec(f.debit) / 100, credit: dec(f.credit) / 100 }, ufValue: +String(f.ufValue).replace(/\D/g, '') }, otaComparison: { bookingCommissionPct: f.ota === '' ? null : dec(f.ota) } } });
+      await A('saveSettings', { patch: { payment: { rates: { debit: dec(f.debit) / 100, prepaid: dec(f.debit) / 100, credit: dec(f.credit) / 100 }, ufValue: +String(f.ufValue).replace(/\D/g, '') } } });
       ctx.info = await ctx.api.pub('info'); toast('Guardado'); drawSum($('#per', main).value);
     } catch (x) { toast(x.message, 'bad'); }
   });
@@ -711,7 +707,7 @@ async function viewMoney(main) {
 // ---------- Ajustes ----------
 async function viewSettings(main) {
   const demo = ctx.api.mode === 'demo';
-  const [s, ical, outbox, me, bk] = await Promise.all([A('settings'), A('icalLinks'), A('list', { kind: 'outbox' }), A('me'), demo ? null : A('backups')]);
+  const [s, outbox, me, bk] = await Promise.all([A('settings'), A('list', { kind: 'outbox' }), A('me'), demo ? null : A('backups')]);
   const b = s.business;
   const kb = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} MB`);
   main.innerHTML = html`${head('Ajustes')}
@@ -729,16 +725,6 @@ async function viewSettings(main) {
         <div class="field"><label for="b-out">Salida hasta</label><input id="b-out" name="checkoutUntil" type="time" value="${b.checkoutUntil}"></div>
         <div class="field field-wide"><label for="b-rules">Reglas de la casa (una por línea)</label><textarea id="b-rules" name="rules" rows="5">${(s.houseRules || []).join('\n')}</textarea></div>
       </div><div class="row-end"><button class="btn btn-primary">Guardar</button></div></form>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head"><h2 class="h4">Sincronizar con Booking</h2>${demo ? '' : html`<button class="btn btn-soft btn-sm" id="sync">${icon('sync')} Sincronizar ahora</button>`}</div>
-      <p class="muted small">Para no vender dos veces la misma noche. En la extranet de Booking, en "Tarifas y disponibilidad → Sincronizar calendarios", pega el enlace de exportación de cada habitación, y copia aquí el enlace que Booking te entrega. Se sincroniza cada 15 minutos; entre una sincronización y otra puede haber unos minutos de desfase.</p>
-      ${demo ? html`<p class="note">${icon('info')} En la demostración los enlaces son de ejemplo. Funcionan al publicar el sitio en su dominio.</p>` : ''}
-      <form id="ical"><div class="table-wrap"><table class="tbl"><thead><tr><th>Habitación</th><th>Enlace para Booking (exportar)</th><th>Enlace de Booking (importar)</th></tr></thead><tbody>
-        ${ical.links.map((l) => html`<tr><td>${l.name}</td><td><span class="mono small sel">${l.url}</span> <button type="button" class="icon-btn sm" data-copy="${l.url}" aria-label="Copiar enlace">${icon('copy')}</button></td><td><input name="${l.roomId}" aria-label="Enlace iCal de Booking para ${l.name}" value="${s.ical?.[l.roomId] || ''}" placeholder="https://admin.booking.com/…ics"></td></tr>`)}
-      </tbody></table></div><div class="row-end"><button class="btn btn-soft">Guardar enlaces</button></div></form>
-      ${ical.lastSync ? html`<p class="muted small">Última sincronización: ${new Date(ical.lastSync.at).toLocaleString('es-CL')}. ${ical.lastSync.report.map((r) => r.ok ? `${r.roomId}: +${r.added} / −${r.removed}${r.conflicts.length ? `, ${r.conflicts.length} choque(s)` : ''}` : `${r.roomId}: error (${r.error})`).join(' · ')}</p>` : ''}
     </section>
 
     <section class="panel">
@@ -764,14 +750,7 @@ async function viewSettings(main) {
     delete f.rules;
     try { await A('saveSettings', { patch: { business: f, houseRules: rules } }); ctx.info = await ctx.api.pub('info'); toast('Datos guardados'); } catch (x) { toast(x.message, 'bad'); }
   });
-  $('#ical', main).addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
-    for (const [k, v] of Object.entries(f)) if (v && !/^https:\/\//.test(v)) { toast('Los enlaces deben empezar con https://', 'bad'); return; }
-    try { await A('saveSettings', { patch: { ical: f } }); toast('Enlaces guardados'); } catch (x) { toast(x.message, 'bad'); }
-  });
   main.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copyText(c.dataset.copy, c); });
-  $('#sync', main)?.addEventListener('click', async () => { try { await A('icalSync'); toast('Sincronizado'); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
   $('#reset', main)?.addEventListener('click', async () => {
     if (!(await confirmSheet({ title: 'Reiniciar demostración', body: '<p>Se borran las reservas y cambios que hiciste en esta demo.</p>', confirm: 'Reiniciar', danger: true }))) return;
     await A('resetDemo'); ctx.info = await ctx.api.pub('info'); toast('Demostración reiniciada'); ctx.go('panel');

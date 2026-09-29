@@ -15,7 +15,6 @@ import { seedProduction } from '../core/seed.js';
 import { createWebpay } from './payments/webpay.js';
 import { createSimulatedPayments } from '../core/simulated-payments.js';
 import { createAuth, signer } from './auth.js';
-import { exportRoomCalendar, parseIcs, applyImport } from './ical.js';
 import { startMailer } from './mailer.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -62,27 +61,6 @@ export async function createApp(env = process.env) {
   const useTimers = !env.TAREAS_SECRET;
   const mailer = startMailer({ timers: useTimers, store, settingsFn: () => store.getSettings(), baseUrl: cfg.baseUrl, sign, apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM || 'Santa Elena de Maipo Home <reservas@example.cl>' });
 
-  // ---------- iCal ----------
-  async function syncIcal() {
-    const s = store.getSettings();
-    const report = [];
-    for (const [roomId, url] of Object.entries(s.ical || {})) {
-      if (!url) continue;
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const r = applyImport({ store, svc, roomId, events: parseIcs(await res.text()), today: svc.today() });
-        report.push({ roomId, ok: true, ...r });
-      } catch (e) {
-        report.push({ roomId, ok: false, error: e.message });
-      }
-    }
-    store.saveSettings({ ...store.getSettings(), icalLastSync: { at: new Date().toISOString(), report } });
-    return report;
-  }
-  const icalTimer = useTimers ? setInterval(() => syncIcal().catch(() => {}), 15 * 60000) : null;
-  icalTimer?.unref();
-
   // ---------- Respaldos ----------
   const backupDir = join(cfg.dataDir, 'respaldos');
   const BACKUP_RE = /^reservas-\d{4}-\d{2}-\d{2}(?:-\d{6})?\.db$/;
@@ -111,7 +89,6 @@ export async function createApp(env = process.env) {
     return timingSafeEqual(got, tareaKey);
   }
   const TAREAS = {
-    ical: async () => ({ report: await syncIcal() }),
     correos: async () => { await mailer.tick(); return { ok: true, configured: !!env.RESEND_API_KEY }; },
     vencer: async () => { svc.sweepExpired(); return { ok: true }; },
     respaldo: async () => backupNow(),
@@ -271,15 +248,6 @@ export async function createApp(env = process.env) {
 <script src="/pago-ir.js"></script>`, { 'Content-Type': 'text/html; charset=utf-8' });
     }
 
-    const icalMatch = /^\/ical\/([\w-]+)\.ics$/.exec(path);
-    if (icalMatch) {
-      const roomId = icalMatch[1];
-      if (url.searchParams.get('k') !== sign(`ical:${roomId}`)) return send(res, 403, 'Enlace inválido');
-      const room = store.get('rooms', roomId);
-      if (!room) return send(res, 404, 'No encontrado');
-      return send(res, 200, exportRoomCalendar({ store, roomId, name: room.name }), { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-store' });
-    }
-
     if (path.startsWith('/api/')) {
       if (req.method !== 'POST') return json(res, 405, { error: 'Usa POST.' });
       if (!sameOrigin(req)) return json(res, 403, { error: 'Origen no permitido.' });
@@ -305,10 +273,6 @@ export async function createApp(env = process.env) {
           if (method === 'logout') { auth.logout(req); return json(res, 200, { ok: true }, { 'Set-Cookie': auth.cookie('', 0) }); }
           if (method === 'me') return json(res, 200, { admin: who.admin, environment: store.getSettings().payment?.environment, server: true });
           if (method === 'upload') return json(res, 200, await upload(await readJson(req, 12_000_000)));
-          if (method === 'icalSync') return json(res, 200, { report: await syncIcal() });
-          if (method === 'icalLinks') {
-            return json(res, 200, { links: store.list('rooms').map((r) => ({ roomId: r.id, name: r.name, url: `${cfg.baseUrl}/ical/${r.id}.ics?k=${sign(`ical:${r.id}`)}` })), lastSync: store.getSettings().icalLastSync || null });
-          }
           if (method === 'changePassword') {
             const b = await readJson(req);
             auth.createAdmin({ email: who.admin.email, password: b.password });
@@ -397,7 +361,7 @@ export async function createApp(env = process.env) {
   server.headersTimeout = 20000;
   server.requestTimeout = 60000;
 
-  return { server, cfg, store, svc, auth, payments, syncIcal, backupNow, listBackups, close: () => { server.close(); store.close(); if (icalTimer) clearInterval(icalTimer); mailer.stop(); } };
+  return { server, cfg, store, svc, auth, payments, backupNow, listBackups, close: () => { server.close(); store.close(); mailer.stop(); } };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

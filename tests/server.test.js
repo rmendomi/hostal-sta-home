@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../server/index.js';
 import { createWebpay } from '../server/payments/webpay.js';
-import { parseIcs, exportRoomCalendar } from '../server/ical.js';
 import { addDays, today } from '../core/dates.js';
 
 let app; let base; let dir;
@@ -86,21 +85,11 @@ test('panel: exige sesión y permite gestionar', async () => {
   assert.equal(block.status, 200);
   const s = await post('/api/public/search', { checkin: d(51), checkout: d(52), adults: 1 });
   assert.equal(s.body.results.find((r) => r.room.id === 'hab-twin').available, false);
-  const links = await post('/api/admin/icalLinks', {}, h);
-  const ics = await fetch(links.body.links.find((x) => x.roomId === 'hab-twin').url);
-  assert.equal(ics.status, 200);
-  assert.match(await ics.text(), /SUMMARY:Cerrado/);
   const sum = await post('/api/admin/summary', { from: T, to: d(60) }, h);
   assert.equal(sum.status, 200);
   assert.ok(sum.body.gross > 0);
   const up = await post('/api/admin/upload', { dataUrl: 'data:image/png;base64,' + Buffer.from('no es imagen').toString('base64') }, h);
   assert.equal(up.status, 400);
-});
-
-test('iCal: lectura de un calendario de Booking', () => {
-  const ics = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261101\r\nDTEND;VALUE=DATE:20261104\r\nUID:abc@booking.com\r\nSUMMARY:CLOSED - Not av\r\n ailable\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n';
-  const ev = parseIcs(ics);
-  assert.deepEqual(ev, [{ start: '2026-11-01', end: '2026-11-04', uid: 'abc@booking.com', summary: 'CLOSED - Not available' }]);
 });
 
 test('Webpay: forma de las llamadas a la API', async () => {
