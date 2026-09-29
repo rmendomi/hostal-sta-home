@@ -14,7 +14,9 @@
 | Tarifas por noche | **Estimadas.** Aparecen como "Estimada" en Tarifas hasta que pongas el precio real y guardes. |
 | Almuerzo, cena y lavandería | **Sin precio.** Están creados pero apagados; al ponerles monto en Tarifas → Cargos extra y activarlos, el huésped puede agregarlos al reservar. Mientras tanto el sitio dice que se piden y pagan en el hostal. |
 | Fotos | **No hay.** Se muestra un plano referencial de cada habitación hasta que subas fotos. |
-| Reservas del panel de la demo | **Ficticias**, con la palabra "(ejemplo)" en el nombre. |
+| Reservas del panel de la demo | **Ficticias**, con la palabra "(ejemplo)" en el nombre. El sitio real en hostalsantaelena.cl parte sin reservas ni datos de ejemplo. |
+| Temporadas y descuentos | **Borrador.** En el sitio real vienen apagados; enciéndelos en Tarifas si los quieres usar. |
+| Respaldos | **Automáticos** una vez al día; se descargan en Panel → Ajustes → Respaldos. |
 
 La demo guarda todo en tu navegador. Para volver al inicio: Panel → Ajustes → Reiniciar demostración.
 
@@ -44,7 +46,7 @@ La comisión de Webpay la pagas tú, no el huésped. El sitio se lo explica y en
 | Concepto | Costo | Fuente |
 |---|---|---|
 | Webpay Plus | Sin mensualidad. 1,75 % + IVA por venta con débito o prepago, 2,35 % + IVA con crédito (mínimo 0,00226 / 0,003515 UF). Abono en 24 h hábiles (débito) y 48 h hábiles (crédito). | [Transbank](https://ayuda.transbank.cl/tarifas-vender-webpay), revisado 26-09-2026 |
-| Servidor (Render Starter + disco 1 GB) | USD 7,25 al mes, unos $7.000 | [Render](https://render.com/pricing) |
+| Hosting NinjaHosting Wako | $59.900 + IVA al año | [NinjaHosting](https://www.ninjahosting.cl/web-hosting-chile) |
 | Dominio .cl | $9.990 al año | [NIC Chile](https://www.nic.cl/dominios/tarifas.html) |
 | Correos (Resend) | Gratis hasta 3.000 al mes y 100 al día | [Resend](https://resend.com/pricing) |
 | Sincronización con Booking | Gratis (iCal) | |
@@ -58,7 +60,7 @@ Como comparación: Flow cobra 2,89 % + IVA ([Flow](https://web.flow.cl/es-cl/tar
 1. **Tus datos reales**: tarifa de cada habitación y de la cabaña, precio del almuerzo, la cena y la lavandería, y fotos. Se cambian en el panel.
 2. **Decisiones de cobro**: confirmar anticipo 30 %, cancelación gratis hasta 7 días antes y cambios hasta 3 días antes (se ajustan en Cobros).
 3. **Transbank**: contratar Webpay Plus. Si no tienes inicio de actividades en el SII, cada pago queda limitado a $200.000. Transbank valida la integración antes de entregar el código de comercio y la llave de producción.
-4. **Servidor y dominio**: crear la cuenta en Render (USD 7,25 al mes) y comprar el dominio .cl. Necesito tu autorización para crear cuentas de pago.
+4. **Publicar en NinjaHosting**: seguir [docs/DESPLIEGUE-NINJAHOSTING.md](docs/DESPLIEGUE-NINJAHOSTING.md) (hosting Wako y dominio hostalsantaelena.cl ya contratados).
 5. **Correo**: crear cuenta gratuita en Resend y verificar el dominio para que los correos no lleguen a spam.
 6. **Booking**: pegar los enlaces de calendario en la extranet de Booking y en el panel.
 7. **Textos legales**: revisar con tu contador si emites boleta electrónica y si aplicará la exención de IVA a turistas extranjeros.

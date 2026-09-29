@@ -14,7 +14,7 @@ const d = (n) => addDays(T, n);
 
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), 'se-'));
-  app = await createApp({ PORT: '0', DATA_DIR: dir, PAYMENTS: 'simulado', ADMIN_EMAIL: 'rene@example.cl', ADMIN_PASSWORD: 'clave-muy-segura-1' });
+  app = await createApp({ PORT: '0', DATA_DIR: dir, PAYMENTS: 'simulado', INICIAR_BASE: '1', ADMIN_EMAIL: 'rene@example.cl', ADMIN_PASSWORD: 'clave-muy-segura-1' });
   await new Promise((r) => app.server.listen(0, r));
   base = `http://127.0.0.1:${app.server.address().port}`;
   app.cfg.baseUrl = base;

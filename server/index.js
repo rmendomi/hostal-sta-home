@@ -2,16 +2,16 @@
 // con su SQLite integrado. Arranque: `npm start` (ver README.md).
 
 import http from 'node:http';
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, stat, readdir, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, extname, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 
 import { openStore } from './store-sqlite.js';
 import { createService, ServiceError } from '../core/service.js';
 import { createRpc } from '../core/rpc.js';
-import { seedAll } from '../core/seed.js';
+import { seedProduction } from '../core/seed.js';
 import { createWebpay } from './payments/webpay.js';
 import { createSimulatedPayments } from '../core/simulated-payments.js';
 import { createAuth, signer } from './auth.js';
@@ -40,13 +40,16 @@ export async function createApp(env = process.env) {
   const sign = signer(secret);
 
   const store = openStore(env.DB_FILE || join(cfg.dataDir, 'reservas.db'));
-  if (!store.list('rooms').length) seedAll(store);
+  // La base parte vacía. Solo se cargan los datos reales del hostal si se pide
+  // explícitamente (INICIAR_BASE=1), para no sembrar nada por accidente.
+  if (!store.list('rooms').length && env.INICIAR_BASE === '1') seedProduction(store);
+  const needsSetup = () => !store.list('rooms').length;
 
   const payments = cfg.payments === 'simulado'
     ? createSimulatedPayments({ urlFor: (token) => `${cfg.baseUrl}/pago-simulado/${token}` })
     : createWebpay({ environment: cfg.webpayEnv, commerceCode: env.WEBPAY_COMMERCE_CODE, apiKey: env.WEBPAY_API_KEY });
   const s0 = store.getSettings();
-  store.saveSettings({ ...s0, payment: { ...s0.payment, environment: cfg.payments === 'simulado' ? 'simulado' : cfg.webpayEnv } });
+  if (s0.payment) store.saveSettings({ ...s0, payment: { ...s0.payment, environment: cfg.payments === 'simulado' ? 'simulado' : cfg.webpayEnv } });
 
   const svc = createService({ store, payments });
   const rpc = createRpc({ svc, sign, returnUrl: () => `${cfg.baseUrl}/pago/retorno` });
@@ -54,7 +57,10 @@ export async function createApp(env = process.env) {
   const auth = createAuth({ store, secure });
   if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD && !auth.hasAdmins()) auth.createAdmin({ email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD, name: 'Administración' });
 
-  const mailer = startMailer({ store, settingsFn: () => store.getSettings(), baseUrl: cfg.baseUrl, sign, apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM || 'Santa Elena de Maipo Home <reservas@example.cl>' });
+  // Con TAREAS_SECRET definido (hosting con cron, como cPanel) las tareas
+  // repetidas las dispara el cron en /tareas/*; sin él, corren con relojes internos.
+  const useTimers = !env.TAREAS_SECRET;
+  const mailer = startMailer({ timers: useTimers, store, settingsFn: () => store.getSettings(), baseUrl: cfg.baseUrl, sign, apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM || 'Santa Elena de Maipo Home <reservas@example.cl>' });
 
   // ---------- iCal ----------
   async function syncIcal() {
@@ -74,8 +80,42 @@ export async function createApp(env = process.env) {
     store.saveSettings({ ...store.getSettings(), icalLastSync: { at: new Date().toISOString(), report } });
     return report;
   }
-  const icalTimer = setInterval(() => syncIcal().catch(() => {}), 15 * 60000);
-  icalTimer.unref();
+  const icalTimer = useTimers ? setInterval(() => syncIcal().catch(() => {}), 15 * 60000) : null;
+  icalTimer?.unref();
+
+  // ---------- Respaldos ----------
+  const backupDir = join(cfg.dataDir, 'respaldos');
+  const BACKUP_RE = /^reservas-\d{4}-\d{2}-\d{2}(?:-\d{6})?\.db$/;
+  async function listBackups() {
+    await mkdir(backupDir, { recursive: true });
+    const names = (await readdir(backupDir)).filter((n) => BACKUP_RE.test(n)).sort().reverse();
+    return Promise.all(names.map(async (name) => { const st = await stat(join(backupDir, name)); return { name, size: st.size, at: st.mtime.toISOString() }; }));
+  }
+  async function backupNow({ keep = 14, suffix = '' } = {}) {
+    await mkdir(backupDir, { recursive: true });
+    const name = `reservas-${new Date().toISOString().slice(0, 10)}${suffix}.db`;
+    const file = join(backupDir, name);
+    if (existsSync(file)) await unlink(file);
+    // VACUUM INTO copia la base de forma consistente aunque esté en uso.
+    store.db.prepare('VACUUM INTO ?').run(file);
+    const all = await listBackups();
+    for (const b of all.slice(keep)) await unlink(join(backupDir, b.name)).catch(() => {});
+    return { name };
+  }
+
+  // ---------- Tareas programadas (cron) ----------
+  const tareaKey = env.TAREAS_SECRET ? createHash('sha256').update(env.TAREAS_SECRET).digest() : null;
+  function tareaAuthorized(req) {
+    if (!tareaKey) return false;
+    const got = createHash('sha256').update(String(req.headers['x-tarea-clave'] || '')).digest();
+    return timingSafeEqual(got, tareaKey);
+  }
+  const TAREAS = {
+    ical: async () => ({ report: await syncIcal() }),
+    correos: async () => { await mailer.tick(); return { ok: true, configured: !!env.RESEND_API_KEY }; },
+    vencer: async () => { svc.sweepExpired(); return { ok: true }; },
+    respaldo: async () => backupNow(),
+  };
 
   // ---------- Límite de peticiones por IP ----------
   const buckets = new Map();
@@ -184,7 +224,19 @@ export async function createApp(env = process.env) {
     const path = url.pathname;
     const ip = ipOf(req);
 
-    if (path === '/salud') return json(res, 200, { ok: true });
+    if (path === '/salud') return json(res, 200, { ok: true, base: needsSetup() ? 'vacia' : 'lista' });
+
+    const tareaMatch = /^\/tareas\/([a-z]+)$/.exec(path);
+    if (tareaMatch) {
+      if (!tareaKey || !Object.hasOwn(TAREAS, tareaMatch[1])) return send(res, 404, 'No encontrado');
+      if (req.method !== 'POST') return json(res, 405, { error: 'Usa POST.' });
+      if (!tareaAuthorized(req)) return json(res, 403, { error: 'Clave inválida.' });
+      try { return json(res, 200, await TAREAS[tareaMatch[1]]()); } catch (e) { console.error('tarea', tareaMatch[1], e); return json(res, 500, { error: e.message }); }
+    }
+
+    if (needsSetup() && !path.startsWith('/core/') && !/\.(js|css|svg|ico|png|woff2)$/.test(path)) {
+      return send(res, 503, setupPage(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    }
 
     if (path === '/pago/retorno') {
       const params = req.method === 'POST' ? await readForm(req) : Object.fromEntries(url.searchParams);
@@ -262,6 +314,18 @@ export async function createApp(env = process.env) {
             auth.createAdmin({ email: who.admin.email, password: b.password });
             return json(res, 200, { ok: true });
           }
+          if (method === 'changeEmail') {
+            const b = await readJson(req);
+            if (!auth.checkPassword(who.admin.id, b.password)) return json(res, 400, { error: 'La contraseña actual no es correcta.' });
+            const admin = auth.changeEmail(who.admin.id, b.email);
+            return json(res, 200, { admin });
+          }
+          if (method === 'backups') return json(res, 200, { backups: await listBackups(), dir: backupDir });
+          if (method === 'backupNow') {
+            const r = await backupNow({ suffix: `-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}` });
+            store.insert('audit', { at: new Date().toISOString(), adminId: who.admin.id, method, ip });
+            return json(res, 200, r);
+          }
           if (method === 'sendQueuedEmails') { await mailer.tick(); return json(res, 200, { ok: true, configured: !!env.RESEND_API_KEY }); }
           const fn = Object.hasOwn(rpc.adminApi, method) ? rpc.adminApi[method] : null;
           if (!fn) return json(res, 404, { error: 'No encontrado.' });
@@ -283,6 +347,16 @@ export async function createApp(env = process.env) {
       return send(res, 404, 'No encontrado');
     }
 
+    const dl = /^\/panel\/respaldos\/([\w.-]+)$/.exec(path);
+    if (dl) {
+      if (!auth.fromRequest(req)) return send(res, 302, '', { Location: '/#/panel' });
+      if (!BACKUP_RE.test(dl[1])) return send(res, 404, 'No encontrado');
+      try {
+        const buf = await readFile(join(backupDir, dl[1]));
+        return send(res, 200, buf, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${dl[1]}"`, 'Cache-Control': 'no-store' });
+      } catch { return send(res, 404, 'No encontrado'); }
+    }
+
     if (path === '/admin' || path === '/admin/' || path === '/panel') return send(res, 302, '', { Location: '/#/panel' });
     const webRoot = join(ROOT, 'web');
     const file = path === '/' ? join(webRoot, 'index.html') : safeJoin(webRoot, path.slice(1));
@@ -290,6 +364,18 @@ export async function createApp(env = process.env) {
     if (coreFile && await serveFile(res, coreFile)) return;
     if (file && await serveFile(res, file)) return;
     return send(res, 404, 'No encontrado', { 'Content-Type': 'text/plain; charset=utf-8' });
+  }
+
+  function setupPage() {
+    return `<!doctype html><html lang="es-CL"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Falta iniciar la base</title>
+<style>body{font-family:system-ui,sans-serif;background:#eef1ec;margin:0;display:grid;place-items:center;min-height:100vh;padding:16px;color:#1b2a22}main{background:#fff;max-width:560px;padding:28px;border-radius:14px;box-shadow:0 4px 24px #0001;line-height:1.5}code{background:#eef1ec;padding:2px 6px;border-radius:4px}</style>
+<main><h1>El sitio está instalado, falta iniciar la base de datos</h1>
+<p>La base está vacía. Para cargar las habitaciones y las políticas del hostal:</p>
+<ol><li>En cPanel → <b>Setup Node.js App</b>, edita la aplicación.</li>
+<li>Agrega la variable <code>INICIAR_BASE</code> con el valor <code>1</code> y guarda.</li>
+<li>Aprieta <b>Restart</b> y recarga esta página.</li>
+<li>Después borra la variable <code>INICIAR_BASE</code> (no hace falta dejarla).</li></ol>
+<p>No se crean reservas ni datos de ejemplo.</p></main></html>`;
   }
 
   async function upload({ dataUrl, name = '' }) {
@@ -311,7 +397,7 @@ export async function createApp(env = process.env) {
   server.headersTimeout = 20000;
   server.requestTimeout = 60000;
 
-  return { server, cfg, store, svc, auth, payments, syncIcal, close: () => { server.close(); store.close(); clearInterval(icalTimer); } };
+  return { server, cfg, store, svc, auth, payments, syncIcal, backupNow, listBackups, close: () => { server.close(); store.close(); if (icalTimer) clearInterval(icalTimer); mailer.stop(); } };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

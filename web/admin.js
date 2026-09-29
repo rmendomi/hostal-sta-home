@@ -710,9 +710,10 @@ async function viewMoney(main) {
 
 // ---------- Ajustes ----------
 async function viewSettings(main) {
-  const [s, ical, outbox] = await Promise.all([A('settings'), A('icalLinks'), A('list', { kind: 'outbox' })]);
-  const b = s.business;
   const demo = ctx.api.mode === 'demo';
+  const [s, ical, outbox, me, bk] = await Promise.all([A('settings'), A('icalLinks'), A('list', { kind: 'outbox' }), A('me'), demo ? null : A('backups')]);
+  const b = s.business;
+  const kb = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} MB`);
   main.innerHTML = html`${head('Ajustes')}
     <section class="panel">
       <div class="panel-head"><h2 class="h4">Datos del hostal</h2></div>
@@ -747,7 +748,12 @@ async function viewSettings(main) {
     </section>
 
     ${demo ? html`<section class="panel"><div class="panel-head"><h2 class="h4">Demostración</h2></div><p class="muted small">Vuelve a los datos iniciales: borra tus pruebas y recrea las reservas de ejemplo.</p><button class="btn btn-ghost" id="reset">Reiniciar demostración</button></section>` : html`
+    <section class="panel"><div class="panel-head"><h2 class="h4">Respaldos</h2><button class="btn btn-soft btn-sm" id="bk-now">${icon('copy')} Respaldar ahora</button></div>
+      <p class="muted small">Copia de la base de datos (reservas, huéspedes, pagos, tarifas). Se hace una al día automáticamente y se guardan las últimas 14. Descarga una de vez en cuando y guárdala en tu computador. Las fotos no van aquí: están en la carpeta de datos del hosting.</p>
+      ${bk.backups.length ? html`<ul class="plain-list">${bk.backups.map((x) => html`<li><span><strong>${x.name}</strong><br><span class="muted small">${new Date(x.at).toLocaleString('es-CL')} · ${kb(x.size)}</span></span><a class="btn btn-ghost btn-sm" href="/panel/respaldos/${x.name}" download>Descargar</a></li>`)}</ul>` : html`<p class="note">${icon('info')} Todavía no hay respaldos.</p>`}
+    </section>
     <section class="panel"><div class="panel-head"><h2 class="h4">Seguridad</h2></div>
+      <form id="em" class="stack"><div class="fields"><div class="field"><label for="em1">Correo para entrar al panel</label><input id="em1" name="email" type="email" autocomplete="username" value="${me.admin?.email || ''}"></div><div class="field"><label for="em2">Tu contraseña actual</label><input id="em2" name="password" type="password" autocomplete="current-password"></div></div><div class="row-end"><button class="btn btn-soft">Cambiar correo</button></div></form>
       <form id="pw" class="stack"><div class="fields"><div class="field"><label for="pw1">Nueva contraseña</label><input id="pw1" name="password" type="password" minlength="10" autocomplete="new-password"><p class="hint">Mínimo 10 caracteres.</p></div></div><div class="row-end"><button class="btn btn-soft">Cambiar contraseña</button></div></form>
     </section>`}`;
 
@@ -769,6 +775,12 @@ async function viewSettings(main) {
   $('#reset', main)?.addEventListener('click', async () => {
     if (!(await confirmSheet({ title: 'Reiniciar demostración', body: '<p>Se borran las reservas y cambios que hiciste en esta demo.</p>', confirm: 'Reiniciar', danger: true }))) return;
     await A('resetDemo'); ctx.info = await ctx.api.pub('info'); toast('Demostración reiniciada'); ctx.go('panel');
+  });
+  $('#bk-now', main)?.addEventListener('click', async () => { try { await A('backupNow'); toast('Respaldo creado'); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
+  $('#em', main)?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    try { await A('changeEmail', f); toast('Correo cambiado. Úsalo la próxima vez que entres.'); e.target.password.value = ''; } catch (x) { toast(x.message, 'bad'); }
   });
   $('#pw', main)?.addEventListener('submit', async (e) => {
     e.preventDefault();

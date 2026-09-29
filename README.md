@@ -10,17 +10,20 @@ producción: Node.js 22 y su SQLite integrado.
 | `core/` | Lógica compartida: precios (`pricing.js`), reservas y disponibilidad (`service.js`), datos iniciales (`seed.js`). La usan el servidor y la demo, así ambos calculan igual. |
 | `server/` | Servidor HTTP, base de datos SQLite, Webpay Plus, acceso al panel, iCal con Booking, correos. |
 | `web/` | Sitio público (`app.js`), panel (`admin.js`), estilos e ilustraciones. |
-| `tests/` | 24 pruebas: precios, temporadas, descuentos, comisiones, reservas simultáneas, cancelación, cambios, pagos, seguridad del panel. |
+| `tests/` | 31 pruebas: precios, temporadas, descuentos, comisiones, reservas simultáneas (también entre dos procesos), cancelación, cambios, pagos, seguridad del panel, tareas programadas y respaldos. |
+| `app.cjs` | Archivo de inicio para cPanel (Setup Node.js App). |
 | `scripts/build-demo.mjs` | Genera `demo/index.html`, la versión sin servidor para revisar. |
 
 ## Correr en local
 
 ```bash
-PAYMENTS=simulado ADMIN_EMAIL=tu@correo.cl ADMIN_PASSWORD='una-clave-larga' npm start
+PAYMENTS=simulado INICIAR_BASE=1 ADMIN_EMAIL=tu@correo.cl ADMIN_PASSWORD='una-clave-larga' npm start
 # sitio: http://localhost:3000   panel: http://localhost:3000/#/panel
 npm test
 ```
 
+La base parte vacía; `INICIAR_BASE=1` carga una sola vez las habitaciones y
+políticas reales (sin reservas de ejemplo; temporadas y descuentos apagados).
 `PAYMENTS=simulado` reemplaza Webpay por una pasarela de prueba. Sin esa variable
 se usa Webpay en ambiente de integración con las credenciales públicas de prueba
 de Transbank.
@@ -35,6 +38,8 @@ de Transbank.
 | `WEBPAY_COMMERCE_CODE`, `WEBPAY_API_KEY` | Código de comercio y llave secreta que entrega Transbank para producción. |
 | `RESEND_API_KEY`, `MAIL_FROM` | Envío de correos de confirmación con Resend. Sin llave, los correos quedan en cola en el panel. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Crean el primer usuario del panel si no existe ninguno. También: `npm run admin:crear -- correo@dominio.cl`. |
+| `TAREAS_SECRET` | Activa las rutas `/tareas/ical`, `/tareas/correos`, `/tareas/vencer` y `/tareas/respaldo` (POST con cabecera `X-Tarea-Clave`) para llamarlas desde cron, y apaga los relojes internos. Ver `docs/CRON.md`. |
+| `INICIAR_BASE` | `1` la primera vez para cargar los datos reales del hostal si la base está vacía. |
 | `TRUST_PROXY` | `1` si el servidor está detrás de un proxy (Render, Nginx), para limitar intentos por IP real. |
 
 ## Cómo se evita vender dos veces la misma noche
@@ -58,9 +63,16 @@ quedar una ventana de minutos. Los choques quedan reportados en Ajustes.
 - Panel: contraseñas con scrypt, sesión en cookie HttpOnly + SameSite=Strict,
   verificación de origen, límite de intentos de acceso, registro de acciones.
 - Cabeceras de seguridad (CSP, HSTS con https, X-Frame-Options).
-- Respaldo: copiar `DATA_DIR` (contiene `reservas.db`, `uploads/` y `.secret`).
+- Respaldos: `/tareas/respaldo` (cron diario) guarda una copia consistente en
+  `DATA_DIR/respaldos` (últimas 14), descargables desde Panel → Ajustes. Las
+  fotos (`uploads/`) y `.secret` también viven en `DATA_DIR`.
 
-## Publicar en Render
+## Publicar en NinjaHosting (hosting actual)
+
+Paso a paso para cPanel sin SSH: [docs/DESPLIEGUE-NINJAHOSTING.md](docs/DESPLIEGUE-NINJAHOSTING.md).
+Tareas programadas: [docs/CRON.md](docs/CRON.md). Variables: `.env.example`.
+
+## Publicar en Render (alternativa)
 
 `render.yaml` deja el servicio listo (plan Starter con disco de 1 GB). Hay que
 completar `BASE_URL`, credenciales de Webpay y Resend, y apuntar el dominio.

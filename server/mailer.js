@@ -40,7 +40,7 @@ export function renderEmail({ booking, settings, kind, manageUrl }) {
   return html;
 }
 
-export function startMailer({ store, settingsFn, baseUrl, sign, apiKey, from, intervalMs = 30000, log = console }) {
+export function startMailer({ store, settingsFn, baseUrl, sign, apiKey, from, intervalMs = 30000, log = console, timers = true }) {
   async function tick() {
     const queue = store.list('outbox', { status: 'en_cola' });
     if (!queue.length) return;
@@ -64,7 +64,7 @@ export function startMailer({ store, settingsFn, baseUrl, sign, apiKey, from, in
       }
     }
   }
-  const t = setInterval(() => tick().catch((e) => log.error('correo', e)), intervalMs);
-  t.unref();
-  return { tick };
+  const t = timers ? setInterval(() => tick().catch((e) => log.error('correo', e)), intervalMs) : null;
+  t?.unref();
+  return { tick, stop: () => t && clearInterval(t) };
 }

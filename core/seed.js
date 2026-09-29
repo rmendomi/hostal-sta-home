@@ -145,3 +145,15 @@ export function seedAll(store, { demo = false } = {}) {
   for (const d of seedDiscounts) store.insert('discounts', d);
   for (const c of seedCharges) store.insert('charges', c);
 }
+
+// Siembra para el sistema real: solo datos verdaderos del hostal. Temporadas y
+// descuentos quedan como borrador (apagados) hasta que el dueño los revise;
+// nunca se crean reservas, huéspedes ni pagos.
+export function seedProduction(store) {
+  const settings = seedSettings({ demo: false });
+  store.saveSettings({ ...settings, business: { ...settings.business, email: '' } });
+  for (const r of seedRooms) store.insert('rooms', r);
+  for (const s of seedSeasons) store.insert('seasons', { ...s, active: false });
+  for (const d of seedDiscounts) store.insert('discounts', { ...d, active: false });
+  for (const c of seedCharges) store.insert('charges', c);
+}

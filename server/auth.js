@@ -2,6 +2,7 @@
 // guardado solo como hash, cookie HttpOnly + SameSite=Strict.
 
 import { scryptSync, randomBytes, timingSafeEqual, createHash, createHmac } from 'node:crypto';
+import { ServiceError } from '../core/service.js';
 
 const SESSION_DAYS = 14;
 
@@ -57,7 +58,21 @@ export function createAuth({ store, secure }) {
     return `se_admin=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAgeDays * 86400}${secure ? '; Secure' : ''}`;
   }
 
-  return { createAdmin, login, fromRequest, logout, cookie, hasAdmins: () => store.list('admins').length > 0 };
+  function checkPassword(adminId, password) {
+    const admin = store.get('admins', adminId);
+    return !!admin && verifyPassword(String(password || ''), admin);
+  }
+
+  function changeEmail(adminId, email) {
+    email = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ServiceError('valor', 'Correo inválido.');
+    const other = store.list('admins', { email })[0];
+    if (other && other.id !== adminId) throw new ServiceError('valor', 'Ese correo ya tiene acceso al panel.');
+    const a = store.update('admins', adminId, { email });
+    return { id: a.id, email: a.email, name: a.name };
+  }
+
+  return { createAdmin, login, fromRequest, logout, cookie, checkPassword, changeEmail, hasAdmins: () => store.list('admins').length > 0 };
 }
 
 export function signer(secret) {
