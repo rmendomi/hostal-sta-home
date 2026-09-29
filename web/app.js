@@ -87,7 +87,6 @@ function siteHeader() {
       <a class="brand" href="#/inicio" aria-label="${S.info.business.name}, inicio">${logoMark()}<span class="brand-name">Santa Elena<small>de Maipo Home</small></span></a>
       <nav class="site-nav" aria-label="Principal">
         <a href="#/inicio#habitaciones">Habitaciones</a>
-        <a href="#/inicio#precios">Precios claros</a>
         <a href="#/inicio#ubicacion">Ubicación</a>
         <a href="#/mi-reserva">Mi reserva</a>
       </nav>
@@ -251,28 +250,6 @@ function viewHome(main) {
     </div>
   </section>
 
-  <section class="band" id="precios" aria-labelledby="precios-h">
-    <div class="wrap band-grid">
-      <div class="band-copy">
-        <p class="eyebrow">Precios claros</p>
-        <h2 class="h2" id="precios-h">Ves la cuenta completa antes de pagar.</h2>
-        <p>Cada noche, cada cargo y el total en pesos chilenos, con IVA incluido. Sin comisión por reservar y sin sorpresas al llegar.</p>
-        <ul class="promises">
-          <li>${icon('receipt')}<div><strong>Precio final desde el comienzo.</strong> Lo que ves en la búsqueda es lo que pagas, más los extras que tú elijas.</div></li>
-          <li>${icon('card')}<div><strong>${S.info.deposit.mode === 'percent' ? `Anticipo del ${S.info.deposit.percent} %, el resto al llegar.` : S.info.deposit.mode === 'full' ? 'Pago total al reservar.' : 'Pagas todo en el hostal.'}</strong> Con Webpay, débito o crédito. Tu tarjeta la ve solo Transbank.</div></li>
-          <li>${icon('cal')}<div><strong>Cancelación gratis hasta ${plural(S.info.cancellation.freeUntilDays, 'día', 'días')} antes.</strong> Después se retiene el anticipo. Cambios de fecha en línea hasta ${plural(S.info.modification?.freeUntilDays ?? 0, 'día', 'días')} antes.</div></li>
-        </ul>
-      </div>
-      <div class="band-demo">
-        <div class="example-head"><span class="eyebrow">Ejemplo real con nuestras tarifas</span>
-          <label class="sel-wrap"><span class="sr">Habitación del ejemplo</span><select id="ex-room">${rooms.map((r) => html`<option value="${r.id}">${r.name}</option>`)}</select></label>
-          ${guestStepper({ id: 'ex-nights', label: 'Noches', value: 2, min: 1, max: 14 })}
-        </div>
-        <div id="ex-ledger" aria-live="polite"></div>
-      </div>
-    </div>
-  </section>
-
   <section class="wrap section" aria-labelledby="serv-h">
     <div class="section-head"><h2 class="h2" id="serv-h">La casa</h2><p>Un hostal familiar en Villa Santa Elena de Maipo, al poniente de Temuco.</p></div>
     <ul class="services">
@@ -312,23 +289,6 @@ function viewHome(main) {
   bindSearchBar(main, s, startSearch);
   main.addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) openRoom(r.dataset.room); });
 
-  // Ejemplo de boleta con el motor real.
-  const exState = { room: rooms[1]?.id || rooms[0].id, nights: 2 };
-  $('#ex-room', main).value = exState.room;
-  const exDraw = async () => {
-    const ci = addDays(S.info.today, 30);
-    const room = rooms.find((r) => r.id === exState.room);
-    try {
-      const q = await S.api.pub('quote', { checkin: ci, checkout: addDays(ci, exState.nights), items: [{ roomId: room.id, adults: Math.min(2, room.maxGuests), children: 0 }] });
-      $('#ex-ledger', main).innerHTML = ledger(q, { info: S.info, compact: true });
-      const det = $('#ex-ledger .lg-flow', main); if (det) det.open = true;
-    } catch (e) {
-      $('#ex-ledger', main).innerHTML = html`<p class="muted">${e.message}</p>`;
-    }
-  };
-  $('#ex-room', main).addEventListener('change', (e) => { exState.room = e.target.value; exDraw(); });
-  bindSteppers($('.band-demo', main), (id, v) => { exState.nights = v; exDraw(); });
-  exDraw();
 }
 
 // ---------- Detalle de habitación ----------

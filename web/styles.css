@@ -217,29 +217,15 @@ p { margin: 0 0 10px; }
 .room-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 760px) { .room { grid-template-columns: 1fr; } .room-visual { min-height: 200px; } }
 
-/* Banda de precios claros */
-.band { background: var(--band); color: var(--band-ink); margin-top: clamp(56px, 8vw, 96px); padding-block: clamp(48px, 7vw, 88px); }
-.band .eyebrow { color: var(--band-ink-2); }
-.band-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); align-items: start; }
-.band-copy > p { color: var(--band-ink-2); max-width: 32em; font-size: 17px; margin-top: 16px; }
-.promises { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 18px; }
-.promises li { display: flex; gap: 14px; color: var(--band-ink-2); }
-.promises strong { color: var(--band-ink); display: block; }
-.promises .ic { width: 24px; height: 24px; color: var(--band-ink); margin-top: 2px; }
-.band-demo { background: var(--surface); color: var(--ink); border-radius: var(--r-lg); padding: 18px; box-shadow: var(--shadow-lg); }
-.band-demo .eyebrow { color: var(--moss); margin: 0; width: 100%; }
-.example-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 14px; }
-.example-head .stepper { padding: 0; }
+/* Formularios */
 .sel-wrap select, select, input:not([type="checkbox"]):not([type="radio"]), textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
 .sel-wrap { flex: 1 1 200px; }
 textarea { resize: vertical; min-height: 88px; }
 input:hover, select:hover, textarea:hover { border-color: var(--ink-3); }
 [aria-invalid="true"] { border-color: var(--bad) !important; }
-@media (max-width: 860px) { .band-grid { grid-template-columns: 1fr; } }
 
 /* Boleta */
 .ledger { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 16px 14px; font-size: 15px; }
-.band-demo .ledger { border: 0; padding: 0; }
 .ledger-head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px dashed var(--line); font-weight: 600; font-size: 14px; }
 .ledger-head .mono { font-weight: 400; color: var(--ink-3); font-size: 12px; }
 .lg-group { padding: 10px 0; border-bottom: 1px dashed var(--line); }

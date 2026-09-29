@@ -193,7 +193,7 @@ async function openBooking(id, refresh) {
         <ol class="timeline">${(b.history || []).slice().reverse().map((h) => html`<li><time>${new Date(h.at).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })}</time><span>${h.what}</span></li>`)}</ol>
         ${b.emails?.length ? html`<h3 class="h5">Correos al huésped</h3><ul class="plain">${b.emails.map((m) => html`<li>${m.subject} · <span class="muted">${{ en_cola: 'en cola (sin enviar)', enviado: 'enviado', error: 'error' }[m.status] || m.status}</span></li>`)}</ul>` : ''}
       </section>
-      <aside>${ledger(b.quote, { info: ctx.info, booking: v })}</aside>
+      <aside>${ledger(b.quote, { info: ctx.info, booking: v, fees: true })}</aside>
     </div>
   </div>`.toString(), { label: `Reserva ${b.code}`, wide: true });
 
@@ -554,7 +554,7 @@ async function viewRates(main) {
     const f = Object.fromEntries(new FormData($('#sim', main)));
     try {
       const q = await A('quote', { checkin: f.checkin, checkout: f.checkout, items: [{ roomId: f.roomId, adults: +f.adults, children: +f.children }] });
-      $('#sim-out', main).innerHTML = ledger(q, { info: ctx.info });
+      $('#sim-out', main).innerHTML = ledger(q, { info: ctx.info, fees: true });
     } catch (x) { $('#sim-out', main).innerHTML = html`<p class="warn-text">${x.message}</p>`; }
   };
   $('#sim', main).addEventListener('change', sim);

@@ -1,11 +1,11 @@
 // "Boleta clara": el detalle del precio que ve el huésped y el panel.
 // Muestra cada noche, cargos, descuento, total, qué se paga hoy y al llegar,
-// y cuánto se queda el proveedor de pago y cuánto recibe el hostal.
+// y, solo en el panel (fees: true), cuánto se queda Webpay y cuánto recibe el hostal.
 
 import { html, clp, human, plural, pctFmt, icon } from './ui.js';
 import { UNIT_LABEL } from '../core/pricing.js';
 
-export function ledger(q, { info, booking = null, compact = false } = {}) {
+export function ledger(q, { info, booking = null, compact = false, fees = false } = {}) {
   if (!q) return '';
   const lines = q.items.map((it) => {
     const many = it.nights.length > 4;
@@ -38,7 +38,7 @@ export function ledger(q, { info, booking = null, compact = false } = {}) {
         <div><span>Pagas al llegar</span><strong>${clp(p.dueAtProperty)}</strong></div>
       </div>
       <p class="lg-note">${p.reason}</p>`}
-    ${prov && (booking ? paidOnline.length : p.dueNow > 0) ? moneyFlow({ prov, pay, booking, paidOnline }) : ''}
+    ${fees && prov && (booking ? paidOnline.length : p.dueNow > 0) ? moneyFlow({ prov, pay, booking, paidOnline }) : ''}
     ${q.policy && !booking ? html`<p class="lg-policy">${icon('check')} Cancelación gratis hasta el ${human(q.policy.freeCancelUntil, { weekday: true, year: true })}.</p>` : ''}
   </div>`;
 }
