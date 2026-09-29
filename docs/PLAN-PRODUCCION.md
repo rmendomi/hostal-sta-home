@@ -18,6 +18,7 @@ de base de datos.
 | Conexiones salientes | HTTPS sin restricción (Transbank, Resend, Booking) |
 | ModSecurity | Activo; soporte puede desactivarlo para el sitio |
 | SSH / Terminal | **No hay.** Todo se hace desde cPanel |
+| Git en cPanel | **No soportado.** El código se sube por FTP (FileZilla) |
 | DNS | Editor de zonas disponible (para Resend: TXT y CNAME) |
 
 Respuestas de soporte NinjaHosting, ticket #499054 (29-09-2026).
@@ -26,17 +27,16 @@ Respuestas de soporte NinjaHosting, ticket #499054 (29-09-2026).
 
 ```
 /home/USUARIO/
-├── repositories/hostal-sta-home/   ← código, clonado de GitHub con "Git Version Control"
-│                                     y usado directo como carpeta de la app Node
+├── hostalsantaelena-app/           ← código, subido por FTP (FileZilla); es la carpeta de la app Node
 ├── santaelena-data/                ← DATA_DIR: base reservas.db, fotos, .secret, respaldos
 │                                     (fuera de public_html: nunca se puede descargar desde la web)
 └── public_html/                    ← no se usa para la app (Passenger la publica en el dominio)
 ```
 
-- **Código:** cPanel → Git Version Control clona el repositorio público de
-  GitHub. Para actualizar: "Pull or Deploy" → "Update from Remote" y luego
-  "Restart" en Setup Node.js App.
-- **Arranque:** Setup Node.js App con Node 24.18.0, archivo de inicio `app.js`.
+- **Código:** se descarga de GitHub (Code → Download ZIP) y se sube por FTP
+  con FileZilla a `hostalsantaelena-app/`. Para actualizar: volver a subir los
+  archivos que cambiaron y apretar "Restart" en Setup Node.js App.
+- **Arranque:** Setup Node.js App con Node 24.18.0, archivo de inicio `app.cjs`.
 - **Base de datos:** un archivo en `santaelena-data/`. El sistema no necesita
   instalar paquetes para funcionar (Node 24 trae SQLite).
 - **Tareas repetidas:** cPanel → Cron Jobs llama a la app con `curl` (Booking
@@ -59,15 +59,20 @@ en GitHub.
    `www.hostalsantaelena.cl` → Run AutoSSL.
 2. **Carpeta de datos:** cPanel → Administrador de archivos → en tu carpeta
    principal crea `santaelena-data`.
-3. **Código:** cPanel → Git Version Control → Create → Clone URL
-   `https://github.com/rmendomi/hostal-sta-home.git`, Repository Path
-   `repositories/hostal-sta-home` → Create.
+3. **Código por FTP:**
+   - En GitHub abre el repositorio → botón verde **Code** → **Download ZIP** y descomprímelo.
+   - Datos de FTP: cPanel → **Cuentas FTP**. Puedes usar tu usuario principal de cPanel.
+     En FileZilla: Servidor `ftp.hostalsantaelena.cl`, puerto `21`, tu usuario y contraseña
+     (en Archivo → Gestor de sitios elige "Requiere FTP explícito sobre TLS").
+   - En el lado del servidor, entra a tu carpeta principal (`/home/USUARIO`), crea
+     `hostalsantaelena-app` y sube ahí: `app.cjs`, `package.json`, y las carpetas `core`,
+     `server` y `web`. No subas `node_modules`, `.git`, `data` ni `demo`.
 4. **App Node:** cPanel → Setup Node.js App → Create Application:
    - Node.js version: **24.18.0**
    - Application mode: **Production**
-   - Application root: `repositories/hostal-sta-home`
+   - Application root: `hostalsantaelena-app`
    - Application URL: `hostalsantaelena.cl`
-   - Application startup file: `app.js`
+   - Application startup file: `app.cjs`
    - Variables de entorno (botón "Add variable"), ver tabla abajo.
    - Create → luego "Run NPM Install" → "Restart".
 5. **Iniciar la base:** agrega la variable `INICIAR_BASE=1`, Restart, abre
@@ -118,8 +123,8 @@ Trabaja en este repositorio (hostal-sta-home). Es un sistema de reservas directa
 
 Datos del hosting (confirmados por soporte):
 - cPanel con "Setup Node.js App" (Phusion Passenger sobre LiteSpeed/CloudLinux). Se usará Node 24.18.0.
-- NO hay SSH ni Terminal: todo lo que el dueño deba hacer tiene que poder hacerse desde cPanel (variables de entorno, botones Run NPM Install / Restart, Cron Jobs, Administrador de archivos, Git Version Control).
-- El código llega con cPanel Git Version Control clonando este repositorio en ~/repositories/hostal-sta-home, y esa misma carpeta es la raíz de la app Node.
+- NO hay SSH ni Terminal: todo lo que el dueño deba hacer tiene que poder hacerse desde cPanel (variables de entorno, botones Run NPM Install / Restart, Cron Jobs, Administrador de archivos, FTP con FileZilla).
+- cPanel NO soporta Git: el código se sube por FTP (FileZilla) a ~/hostalsantaelena-app, que es la raíz de la app Node. Ya existe app.cjs como archivo de inicio (Passenger lo carga con require()).
 - Datos en DATA_DIR=/home/USUARIO/santaelena-data (fuera de public_html).
 - Conexiones salientes HTTPS permitidas. ModSecurity lo desactiva soporte para el sitio.
 
@@ -134,7 +139,7 @@ Reglas que no se negocian:
 - Textos en español de Chile, moneda CLP. Sin frameworks nuevos.
 
 Etapa 1 · Arranque en cPanel/Passenger
-- Crea app.js en la raíz como archivo de inicio: importa server/index.js y escucha en process.env.PORT (Passenger lo asigna). Suprime el aviso experimental de node:sqlite sin depender de flags de línea de comando (Passenger no los pasa).
+- Ya existe app.cjs en la raíz como archivo de inicio (import() de server/index.js y listen en process.env.PORT). Revísalo y suprime el aviso experimental de node:sqlite sin depender de flags de línea de comando (Passenger no los pasa).
 - Revisa que node:sqlite funcione en Node 24 y ajusta "engines" en package.json.
 - TRUST_PROXY=1 por defecto en producción; revisa que BASE_URL, /pago/retorno (GET y POST), /ical/*.ics, /uploads/* y /#/panel funcionen detrás de Passenger. Si hace falta, agrega un .htaccess de ejemplo en docs/.
 - Si DATA_DIR no existe o no se puede escribir, el servidor debe mostrar un error claro en la página en vez de caerse sin explicación.
@@ -151,7 +156,7 @@ Etapa 3 · Sin datos de ejemplo y sin terminal
 
 Etapa 4 · Pagos, documentación y prueba final
 - Webpay: WEBPAY_ENV=integracion con las credenciales públicas de prueba de Transbank (ya están en server/payments/webpay.js) hasta que el dueño entregue las de producción.
-- Crea docs/DESPLIEGUE-NINJAHOSTING.md con el paso a paso para el dueño solo con cPanel (SSL, carpeta de datos, Git Version Control, Setup Node.js App con Node 24.18.0, variables, Run NPM Install, Restart, iniciar base, cron, ticket de ModSecurity, cómo actualizar con "Update from Remote" + Restart, cómo restaurar un respaldo con el Administrador de archivos). Usa como base la sección "Paso a paso en cPanel" de docs/PLAN-PRODUCCION.md.
+- Crea docs/DESPLIEGUE-NINJAHOSTING.md con el paso a paso para el dueño solo con cPanel (SSL, carpeta de datos, subida por FTP con FileZilla indicando qué archivos subir, Setup Node.js App con Node 24.18.0, variables, Restart, iniciar base, cron, ticket de ModSecurity, cómo actualizar subiendo solo los archivos cambiados + Restart, cómo restaurar un respaldo con el Administrador de archivos). Usa como base la sección "Paso a paso en cPanel" de docs/PLAN-PRODUCCION.md.
 - Recorrido completo en local con PAYMENTS=simulado y luego con Webpay de integración: buscar, elegir habitación, pagar anticipo con la tarjeta de prueba de Transbank, ver la reserva, cambiar fechas, cancelar con devolución, y revisar en el panel el pago, la comisión y el neto. También en celular (390 px).
 - Actualiza README.md y GUIA.md (qué es real ahora y qué falta).
 
