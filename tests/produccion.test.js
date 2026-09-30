@@ -183,3 +183,23 @@ test('el panel ve si el cron está llegando y puede enviar o descartar la cola',
     assert.equal(s.app.store.list('outbox', { status: 'en_cola' }).length, 0);
   } finally { s.done(); }
 });
+
+test('sin cron: una visita envía los correos pendientes y hace el respaldo del día', async () => {
+  const realFetch = globalThis.fetch;
+  const sent = [];
+  const s = await start({ INICIAR_BASE: '1', TAREAS_SECRET: 'frase-de-prueba-larga', RESEND_API_KEY: 're_prueba' });
+  try {
+    const ci = addDays(today(), 20);
+    s.app.svc.createBooking({ checkin: ci, checkout: addDays(ci, 2), items: [{ roomId: 'hab-doble', adults: 2 }], guest: { firstName: 'H', lastName: 'P', email: 'h@example.cl', phone: '+56 9 1111 2222' }, source: 'panel', actor: 'admin', skipPayment: true });
+    assert.equal(s.app.store.list('outbox', { status: 'en_cola' }).length, 1);
+    globalThis.fetch = async (url, o) => {
+      if (String(url).startsWith('https://api.resend.com')) { sent.push(JSON.parse(o.body).to[0]); return new Response('{}', { status: 200 }); }
+      return realFetch(url, o);
+    };
+    await realFetch(s.base + '/salud');
+    for (let i = 0; i < 30 && !(sent.length && (await s.app.listBackups()).length); i++) await new Promise((r) => setTimeout(r, 50));
+    assert.deepEqual(sent, ['h@example.cl']);
+    assert.equal(s.app.store.list('outbox', { status: 'enviado' }).length, 1);
+    assert.equal((await s.app.listBackups()).length, 1);
+  } finally { globalThis.fetch = realFetch; s.done(); }
+});

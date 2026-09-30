@@ -370,7 +370,33 @@ export async function createApp(env = process.env) {
     return { url: `/uploads/${file}`, name: String(name).slice(0, 100) };
   }
 
+  // Tareas de mantención que no dependen del cron: tras cada visita se envían
+  // los correos pendientes y, si hoy aún no hay respaldo, se hace uno. El cron
+  // sigue sirviendo para cuando nadie visita el sitio.
+  let housekeeping = null;
+  let lastMail = 0;
+  let lastBackupCheck = 0;
+  function afterRequest() {
+    if (housekeeping) return;
+    const now = Date.now();
+    const jobs = [];
+    if (env.RESEND_API_KEY && now - lastMail > 15000 && store.list('outbox', { status: 'en_cola' }).length) {
+      lastMail = now;
+      jobs.push(mailer.tick());
+    }
+    if (now - lastBackupCheck > 10 * 60000) {
+      lastBackupCheck = now;
+      const today = new Date().toISOString().slice(0, 10);
+      jobs.push(listBackups().then((all) => (all.some((b) => b.name.startsWith(`reservas-${today}`)) ? null : backupNow())));
+    }
+    if (!jobs.length) return;
+    housekeeping = Promise.allSettled(jobs).then((rs) => {
+      for (const r of rs) if (r.status === 'rejected') console.error('mantención', r.reason);
+    }).finally(() => { housekeeping = null; });
+  }
+
   const server = http.createServer((req, res) => {
+    res.on('finish', () => setImmediate(afterRequest));
     handle(req, res).catch((e) => { console.error(e); if (!res.headersSent) send(res, 500, 'Error'); });
   });
   server.headersTimeout = 20000;
