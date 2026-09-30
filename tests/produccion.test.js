@@ -165,3 +165,21 @@ test('correo de prueba y reintento desde el panel', async () => {
     assert.equal(s.app.store.list('outbox', { status: 'error' }).length, 0);
   } finally { s.done(); }
 });
+
+test('el panel ve si el cron está llegando y puede enviar o descartar la cola', async () => {
+  const s = await start({ INICIAR_BASE: '1', TAREAS_SECRET: 'frase-de-prueba-larga', ADMIN_EMAIL: 'rene@example.cl', ADMIN_PASSWORD: 'clave-muy-segura-1' });
+  try {
+    const login = await post(s.base, '/api/admin/login', { email: 'rene@example.cl', password: 'clave-muy-segura-1' });
+    const h = { Cookie: login.headers.get('set-cookie').split(';')[0] };
+    assert.deepEqual((await (await post(s.base, '/api/admin/tareas', {}, h)).json()).runs, {});
+    await post(s.base, '/tareas/correos', {}, { 'X-Tarea-Clave': 'otra' });
+    await post(s.base, '/tareas/vencer', {}, { 'X-Tarea-Clave': 'frase-de-prueba-larga' });
+    const { runs, enabled } = await (await post(s.base, '/api/admin/tareas', {}, h)).json();
+    assert.equal(enabled, true);
+    assert.equal(runs.correos.result, 'clave');
+    assert.equal(runs.vencer.result, 'ok');
+    s.app.store.insert('outbox', { to: 'x@example.cl', kind: 'confirmacion', subject: 'x', bookingId: 'b', status: 'en_cola' });
+    assert.equal((await (await post(s.base, '/api/admin/mailDiscard', {}, h)).json()).discarded, 1);
+    assert.equal(s.app.store.list('outbox', { status: 'en_cola' }).length, 0);
+  } finally { s.done(); }
+});

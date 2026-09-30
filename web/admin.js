@@ -707,7 +707,7 @@ async function viewMoney(main) {
 // ---------- Ajustes ----------
 async function viewSettings(main) {
   const demo = ctx.api.mode === 'demo';
-  const [s, outbox, me, bk] = await Promise.all([A('settings'), A('list', { kind: 'outbox' }), A('me'), demo ? null : A('backups')]);
+  const [s, outbox, me, bk, tr] = await Promise.all([A('settings'), A('list', { kind: 'outbox' }), A('me'), demo ? null : A('backups'), demo ? null : A('tareas')]);
   const b = s.business;
   const kb = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} MB`);
   main.innerHTML = html`${head('Ajustes')}
@@ -730,8 +730,10 @@ async function viewSettings(main) {
     <section class="panel">
       <div class="panel-head"><h2 class="h4">Correos a huéspedes</h2>${demo ? '' : html`<button class="btn btn-soft btn-sm" id="mail-test">Enviar correo de prueba</button>`}</div>
       <p class="muted small">Confirmación, cambio y cancelación se envían solos cuando alguien reserva, cambia o cancela. ${demo ? '' : me.mail?.connected ? `Servicio de correo conectado${me.mail.from ? `, se envía como ${me.mail.from}` : ''}.` : 'El servicio de correo no está conectado: falta RESEND_API_KEY en el servidor. Mientras tanto quedan en cola.'}</p>
-      ${outbox.length ? html`<ul class="plain">${outbox.slice(-8).reverse().map((m) => html`<li>${m.subject} → ${m.to} · <span class="muted">${{ en_cola: 'en cola', enviado: 'enviado', error: 'no se pudo enviar' }[m.status] || m.status}</span>${m.status === 'error' && m.error ? html`<br><span class="muted small">${m.error}</span>` : ''}</li>`)}</ul>` : html`<p class="note">${icon('info')} Todavía no hay correos: se crean cuando alguien reserva.</p>`}
+      ${outbox.length ? html`<ul class="plain">${outbox.slice(-8).reverse().map((m) => html`<li>${m.subject} → ${m.to} · <span class="muted">${{ en_cola: 'en cola', enviado: 'enviado', error: 'no se pudo enviar', descartado: 'descartado' }[m.status] || m.status}</span>${m.status === 'error' && m.error ? html`<br><span class="muted small">${m.error}</span>` : ''}</li>`)}</ul>` : html`<p class="note">${icon('info')} Todavía no hay correos: se crean cuando alguien reserva.</p>`}
+      ${!demo && outbox.some((m) => m.status === 'en_cola') ? html`<div class="row-end"><button class="btn btn-ghost btn-sm" id="mail-discard">Descartar pendientes</button><button class="btn btn-soft btn-sm" id="mail-now">Enviar pendientes ahora</button></div>` : ''}
       ${!demo && outbox.some((m) => m.status === 'error') ? html`<div class="row-end"><button class="btn btn-ghost btn-sm" id="mail-retry">Reintentar los que fallaron</button></div>` : ''}
+      ${tr ? html`<h3 class="h5">Tareas programadas (Cron Jobs)</h3><ul class="plain">${['correos', 'vencer', 'respaldo'].map((k) => { const r = tr.runs[k]; return html`<li>${{ correos: 'Enviar correos', vencer: 'Liberar reservas no pagadas', respaldo: 'Respaldo diario' }[k]} · <span class="muted">${!tr.enabled ? 'falta TAREAS_SECRET en el servidor' : !r ? 'todavía no ha llegado ninguna llamada' : `última llamada ${new Date(r.at).toLocaleString('es-CL')}${r.result === 'ok' ? '' : r.result === 'clave' ? ': la frase del cron no coincide con TAREAS_SECRET' : ': falló'}`}</span></li>`; })}</ul>` : ''}
     </section>
 
     ${demo ? html`<section class="panel"><div class="panel-head"><h2 class="h4">Demostración</h2></div><p class="muted small">Vuelve a los datos iniciales: borra tus pruebas y recrea las reservas de ejemplo.</p><button class="btn btn-ghost" id="reset">Reiniciar demostración</button></section>` : html`
@@ -757,6 +759,11 @@ async function viewSettings(main) {
     await A('resetDemo'); ctx.info = await ctx.api.pub('info'); toast('Demostración reiniciada'); ctx.go('panel');
   });
   $('#mail-test', main)?.addEventListener('click', async () => { try { const r = await A('mailTest'); toast(`Correo de prueba enviado a ${r.to}`); } catch (x) { toast(x.message, 'bad'); } });
+  $('#mail-now', main)?.addEventListener('click', async () => { try { const r = await A('mailSendNow'); toast(r.pending ? `Quedan ${r.pending} en cola` : 'Correos enviados'); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
+  $('#mail-discard', main)?.addEventListener('click', async () => {
+    if (!(await confirmSheet({ title: 'Descartar correos pendientes', body: '<p>No se enviarán. Úsalo para no mandar confirmaciones de reservas de prueba.</p>', confirm: 'Descartar', danger: true }))) return;
+    try { const r = await A('mailDiscard'); toast(`${r.discarded} correo(s) descartados`); viewSettings(main); } catch (x) { toast(x.message, 'bad'); }
+  });
   $('#mail-retry', main)?.addEventListener('click', async () => { try { const r = await A('mailRetry'); toast(`${r.retried} correo(s) enviados de nuevo`); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
   $('#bk-now', main)?.addEventListener('click', async () => { try { await A('backupNow'); toast('Respaldo creado'); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
   $('#em', main)?.addEventListener('submit', async (e) => {

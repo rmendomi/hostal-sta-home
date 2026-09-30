@@ -207,8 +207,11 @@ export async function createApp(env = process.env) {
     if (tareaMatch) {
       if (!tareaKey || !Object.hasOwn(TAREAS, tareaMatch[1])) return send(res, 404, 'No encontrado');
       if (req.method !== 'POST') return json(res, 405, { error: 'Usa POST.' });
-      if (!tareaAuthorized(req)) return json(res, 403, { error: 'Clave inválida.' });
-      try { return json(res, 200, await TAREAS[tareaMatch[1]]()); } catch (e) { console.error('tarea', tareaMatch[1], e); return json(res, 500, { error: e.message }); }
+      const name = tareaMatch[1];
+      // Se anota cada llamada para ver en el panel si el cron está llegando.
+      const mark = (result) => { const s = store.getSettings(); store.saveSettings({ ...s, tareas: { ...(s.tareas || {}), [name]: { at: new Date().toISOString(), result } } }); };
+      if (!tareaAuthorized(req)) { mark('clave'); return json(res, 403, { error: 'Clave inválida.' }); }
+      try { const r = await TAREAS[name](); mark('ok'); return json(res, 200, r); } catch (e) { console.error('tarea', name, e); mark('error'); return json(res, 500, { error: e.message }); }
     }
 
     if (needsSetup() && !path.startsWith('/core/') && !/\.(js|css|svg|ico|png|woff2)$/.test(path)) {
@@ -277,6 +280,13 @@ export async function createApp(env = process.env) {
             return r.ok ? json(res, 200, { ok: true, to: who.admin.email }) : json(res, 400, { error: `No se pudo enviar: ${r.error}` });
           }
           if (method === 'mailRetry') { const n = mailer.retry(); await mailer.tick(); return json(res, 200, { retried: n }); }
+          if (method === 'mailSendNow') { await mailer.tick(); return json(res, 200, { pending: store.list('outbox', { status: 'en_cola' }).length }); }
+          if (method === 'mailDiscard') {
+            const q = store.list('outbox', { status: 'en_cola' });
+            for (const m of q) store.update('outbox', m.id, { status: 'descartado' });
+            return json(res, 200, { discarded: q.length });
+          }
+          if (method === 'tareas') return json(res, 200, { enabled: !!tareaKey, runs: store.getSettings().tareas || {} });
           if (method === 'upload') return json(res, 200, await upload(await readJson(req, 12_000_000)));
           if (method === 'changePassword') {
             const b = await readJson(req);
