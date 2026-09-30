@@ -203,9 +203,11 @@ export async function createApp(env = process.env) {
 
     if (path === '/salud') return json(res, 200, { ok: true, base: needsSetup() ? 'vacia' : 'lista' });
 
-    const tareaMatch = /^\/tareas\/([a-z]+)$/.exec(path);
-    if (tareaMatch) {
-      if (!tareaKey || !Object.hasOwn(TAREAS, tareaMatch[1])) return send(res, 404, 'No encontrado');
+    if (path.startsWith('/tareas')) {
+      const tareaMatch = /^\/tareas\/([a-z]+)\/?$/.exec(path);
+      // Mensajes explícitos: el cron solo ve el código y este texto.
+      if (!tareaKey) return send(res, 404, `Tareas desactivadas en este proceso: falta TAREAS_SECRET (pid ${process.pid}).`, { 'Content-Type': 'text/plain; charset=utf-8' });
+      if (!tareaMatch || !Object.hasOwn(TAREAS, tareaMatch[1])) return send(res, 404, `Tarea desconocida: ${JSON.stringify(path).slice(0, 120)}. Usa /tareas/correos, /tareas/vencer o /tareas/respaldo.`, { 'Content-Type': 'text/plain; charset=utf-8' });
       if (req.method !== 'POST') return json(res, 405, { error: 'Usa POST.' });
       const name = tareaMatch[1];
       // Se anota cada llamada para ver en el panel si el cron está llegando.
