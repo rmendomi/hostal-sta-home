@@ -1,15 +1,17 @@
 /* Panel del hostal: denso y operativo, mismos tokens que el sitio. */
 
 .adm { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-.adm-side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 20px; padding: 18px 14px; background: var(--surface); border-right: 1px solid var(--line-2); }
+.adm-side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 20px; padding: 18px 14px; background: var(--band); color: var(--band-ink); border-right: 1px solid var(--line-2); }
+.adm-side .brand { color: var(--band-ink); }
+.adm-side :focus-visible { outline-color: var(--ocre); }
 .adm-nav { display: grid; gap: 2px; }
-.adm-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-sm); text-decoration: none; color: var(--ink-2); font-weight: 500; }
-.adm-nav a:hover { background: var(--surface-2); color: var(--ink); }
-.adm-nav a.on { background: var(--forest); color: var(--bg); }
+.adm-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-sm); text-decoration: none; color: var(--band-ink-2); font-weight: 500; font-size: 14.5px; transition: background .2s, color .2s; }
+.adm-nav a:hover { background: color-mix(in srgb, var(--band-ink) 9%, transparent); color: var(--band-ink); }
+.adm-nav a.on { background: var(--terracota); color: var(--crema); }
 .adm-nav .ic { width: 19px; height: 19px; }
 .adm-side-foot { margin-top: auto; display: grid; gap: 4px; }
-.adm-link { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: none; border: 0; text-decoration: none; color: var(--ink-3); cursor: pointer; font-size: 14px; border-radius: var(--r-sm); text-align: left; }
-.adm-link:hover { color: var(--ink); background: var(--surface-2); }
+.adm-link { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: none; border: 0; text-decoration: none; color: var(--band-ink-2); cursor: pointer; font-size: 14px; border-radius: var(--r-sm); text-align: left; }
+.adm-link:hover { color: var(--band-ink); background: color-mix(in srgb, var(--band-ink) 9%, transparent); }
 .adm-link .ic { width: 17px; height: 17px; }
 .adm-env { font-size: 12px; padding: 6px 10px; border-radius: var(--r-sm); margin: 0 0 6px; }
 .adm-env-demo { background: var(--warn-bg); color: var(--warn); }
@@ -38,7 +40,7 @@
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
 .kpi { display: flex; flex-direction: column; gap: 4px; background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
 .kpi span { font-size: 13px; color: var(--ink-3); }
-.kpi strong { font: 700 24px/1.1 var(--f-display); letter-spacing: -.01em; }
+.kpi strong { font: 700 22px/1.15 var(--f-body); letter-spacing: -.01em; }
 .kpi em { font-style: normal; font-size: 12.5px; color: var(--ink-3); }
 .kpi-main { background: var(--forest); border-color: var(--forest); }
 .kpi-main span, .kpi-main em { color: color-mix(in srgb, var(--bg) 75%, transparent); }
@@ -149,7 +151,7 @@
 .money { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
 .money-flow { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-lg); padding: 8px 18px; }
 .mf-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
-.mf-row strong { font: 700 20px var(--f-display); }
+.mf-row strong { font: 700 18px var(--f-body); }
 .mf-sub { padding-left: 14px; color: var(--ink-3); font-size: 14px; }
 .mf-neg span:last-child { color: var(--bad); }
 .mf-total { border-bottom: 0; padding-top: 14px; }
@@ -163,3 +165,8 @@
 .login-card { width: min(400px, 100%); background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-lg); padding: 28px; display: grid; gap: 14px; box-shadow: var(--shadow); }
 .login-card .brand { margin-bottom: 6px; }
 .kv + form { margin-top: 16px; }
+
+/* Pantalla de acceso: fondo crema, isotipo en terracota para que se lea. */
+.login .brand-name small { color: var(--alerce); }
+.login .lm-arch, .login .lm-base { stroke: var(--terracota); }
+.login .lm-se { fill: var(--ink); }
