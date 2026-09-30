@@ -344,7 +344,9 @@ export async function createApp(env = process.env) {
     const coreFile = path.startsWith('/core/') ? safeJoin(join(ROOT, 'core'), path.slice('/core/'.length)) : null;
     if (coreFile && await serveFile(res, coreFile)) return;
     if (file && await serveFile(res, file)) return;
-    return send(res, 404, 'No encontrado', { 'Content-Type': 'text/plain; charset=utf-8' });
+    // Para llamadas que no son de navegador (cron, integraciones) se muestra qué ruta llegó.
+    const detail = req.method === 'GET' || req.method === 'HEAD' ? '' : ` (${req.method} ${JSON.stringify(req.url).slice(0, 160)})`;
+    return send(res, 404, `No encontrado${detail}`, { 'Content-Type': 'text/plain; charset=utf-8' });
   }
 
   function setupPage() {
