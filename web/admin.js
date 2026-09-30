@@ -728,9 +728,10 @@ async function viewSettings(main) {
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2 class="h4">Correos a huéspedes</h2></div>
-      <p class="muted small">Confirmación, cambio y cancelación se envían solos cuando el servicio de correo está conectado (variable RESEND_API_KEY en el servidor). Mientras tanto quedan en cola.</p>
-      <ul class="plain">${outbox.slice(-8).reverse().map((m) => html`<li>${m.subject} → ${m.to} · <span class="muted">${{ en_cola: 'en cola', enviado: 'enviado', error: 'error' }[m.status] || m.status}</span></li>`)}</ul>
+      <div class="panel-head"><h2 class="h4">Correos a huéspedes</h2>${demo ? '' : html`<button class="btn btn-soft btn-sm" id="mail-test">Enviar correo de prueba</button>`}</div>
+      <p class="muted small">Confirmación, cambio y cancelación se envían solos cuando alguien reserva, cambia o cancela. ${demo ? '' : me.mail?.connected ? `Servicio de correo conectado${me.mail.from ? `, se envía como ${me.mail.from}` : ''}.` : 'El servicio de correo no está conectado: falta RESEND_API_KEY en el servidor. Mientras tanto quedan en cola.'}</p>
+      ${outbox.length ? html`<ul class="plain">${outbox.slice(-8).reverse().map((m) => html`<li>${m.subject} → ${m.to} · <span class="muted">${{ en_cola: 'en cola', enviado: 'enviado', error: 'no se pudo enviar' }[m.status] || m.status}</span>${m.status === 'error' && m.error ? html`<br><span class="muted small">${m.error}</span>` : ''}</li>`)}</ul>` : html`<p class="note">${icon('info')} Todavía no hay correos: se crean cuando alguien reserva.</p>`}
+      ${!demo && outbox.some((m) => m.status === 'error') ? html`<div class="row-end"><button class="btn btn-ghost btn-sm" id="mail-retry">Reintentar los que fallaron</button></div>` : ''}
     </section>
 
     ${demo ? html`<section class="panel"><div class="panel-head"><h2 class="h4">Demostración</h2></div><p class="muted small">Vuelve a los datos iniciales: borra tus pruebas y recrea las reservas de ejemplo.</p><button class="btn btn-ghost" id="reset">Reiniciar demostración</button></section>` : html`
@@ -755,6 +756,8 @@ async function viewSettings(main) {
     if (!(await confirmSheet({ title: 'Reiniciar demostración', body: '<p>Se borran las reservas y cambios que hiciste en esta demo.</p>', confirm: 'Reiniciar', danger: true }))) return;
     await A('resetDemo'); ctx.info = await ctx.api.pub('info'); toast('Demostración reiniciada'); ctx.go('panel');
   });
+  $('#mail-test', main)?.addEventListener('click', async () => { try { const r = await A('mailTest'); toast(`Correo de prueba enviado a ${r.to}`); } catch (x) { toast(x.message, 'bad'); } });
+  $('#mail-retry', main)?.addEventListener('click', async () => { try { const r = await A('mailRetry'); toast(`${r.retried} correo(s) enviados de nuevo`); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
   $('#bk-now', main)?.addEventListener('click', async () => { try { await A('backupNow'); toast('Respaldo creado'); viewSettings(main); } catch (x) { toast(x.message, 'bad'); } });
   $('#em', main)?.addEventListener('submit', async (e) => {
     e.preventDefault();

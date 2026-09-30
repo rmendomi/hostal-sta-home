@@ -41,6 +41,15 @@ export function renderEmail({ booking, settings, kind, manageUrl }) {
 }
 
 export function startMailer({ store, settingsFn, baseUrl, sign, apiKey, from, intervalMs = 30000, log = console, timers = true }) {
+  async function send({ to, subject, html }) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+      signal: AbortSignal.timeout(15000),
+    });
+    return { ok: res.ok, status: res.status, error: res.ok ? null : (await res.text()).slice(0, 300) };
+  }
   async function tick() {
     const queue = store.list('outbox', { status: 'en_cola' });
     if (!queue.length) return;
@@ -51,14 +60,9 @@ export function startMailer({ store, settingsFn, baseUrl, sign, apiKey, from, in
       const manageUrl = `${baseUrl}/#/reserva/${booking.code}/${await sign(booking.code)}`;
       const html = renderEmail({ booking, settings: settingsFn(), kind: m.kind, manageUrl });
       try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from, to: [m.to], subject: m.subject, html }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (res.ok) store.update('outbox', m.id, { status: 'enviado', sentAt: new Date().toISOString() });
-        else store.update('outbox', m.id, { status: res.status >= 500 ? 'en_cola' : 'error', error: (await res.text()).slice(0, 300) });
+        const r = await send({ to: m.to, subject: m.subject, html });
+        if (r.ok) store.update('outbox', m.id, { status: 'enviado', sentAt: new Date().toISOString(), error: null });
+        else store.update('outbox', m.id, { status: r.status >= 500 ? 'en_cola' : 'error', error: r.error });
       } catch (e) {
         log.warn?.('correo', e.message);
       }
@@ -66,5 +70,21 @@ export function startMailer({ store, settingsFn, baseUrl, sign, apiKey, from, in
   }
   const t = timers ? setInterval(() => tick().catch((e) => log.error('correo', e)), intervalMs) : null;
   t?.unref();
-  return { tick, stop: () => t && clearInterval(t) };
+  // Correo de prueba al dueño, para comprobar la conexión con Resend sin hacer una reserva.
+  async function test(to) {
+    if (!apiKey) return { ok: false, error: 'Falta la variable RESEND_API_KEY en Setup Node.js App.' };
+    const biz = settingsFn().business || {};
+    try {
+      return await send({ to, subject: `Correo de prueba · ${biz.name || 'Hostal'}`, html: `<p style="font-family:Arial,sans-serif;font-size:16px">Si lees esto, los correos de reservas funcionan.</p>` });
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  // Vuelve a poner en cola los correos que fallaron (por ejemplo, antes de verificar el dominio).
+  function retry() {
+    let n = 0;
+    for (const m of store.list('outbox', { status: 'error' })) { store.update('outbox', m.id, { status: 'en_cola' }); n++; }
+    return n;
+  }
+  return { tick, test, retry, stop: () => t && clearInterval(t) };
 }

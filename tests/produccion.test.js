@@ -148,3 +148,20 @@ test('app.cjs arranca como lo hace cPanel (require) y explica si falla la carpet
     assert.match(await res.text(), /carpeta de datos/);
   } finally { bad.kill(); rmSync(tmp, { recursive: true, force: true }); }
 });
+
+test('correo de prueba y reintento desde el panel', async () => {
+  const s = await start({ INICIAR_BASE: '1', ADMIN_EMAIL: 'rene@example.cl', ADMIN_PASSWORD: 'clave-muy-segura-1' });
+  try {
+    const login = await post(s.base, '/api/admin/login', { email: 'rene@example.cl', password: 'clave-muy-segura-1' });
+    const h = { Cookie: login.headers.get('set-cookie').split(';')[0] };
+    const me = await (await post(s.base, '/api/admin/me', {}, h)).json();
+    assert.equal(me.mail.connected, false);
+    const t = await post(s.base, '/api/admin/mailTest', {}, h);
+    assert.equal(t.status, 400);
+    assert.match((await t.json()).error, /RESEND_API_KEY/);
+    s.app.store.insert('outbox', { to: 'x@example.cl', kind: 'confirmacion', subject: 'x', bookingId: 'no-existe', status: 'error', error: 'dominio no verificado' });
+    const r = await (await post(s.base, '/api/admin/mailRetry', {}, h)).json();
+    assert.equal(r.retried, 1);
+    assert.equal(s.app.store.list('outbox', { status: 'error' }).length, 0);
+  } finally { s.done(); }
+});
