@@ -1,8 +1,8 @@
 // Sitio público: portada, búsqueda, reserva, pago y gestión de la reserva.
 
 import { createApi } from './api.js';
-import { html, raw, esc, $, $$, icon, clp, human, plural, addDays, diffDays, toast, openSheet, closeSheet, confirmSheet, rangePicker, guestStepper, bindSteppers, closePops, countdown, copyText, AMENITY_ICON, PAY_STATUS } from './ui.js';
-import { drawLandscape, floorPlan, logoMark } from './art.js';
+import { html, raw, esc, $, $$, icon, clp, human, plural, addDays, diffDays, toast, openSheet, closeSheet, confirmSheet, rangePicker, guestStepper, bindSteppers, closePops, countdown, copyText, revealOnScroll, AMENITY_ICON, PAY_STATUS } from './ui.js';
+import { floorPlan, logoMark } from './art.js';
 import { ledger } from './ledger.js';
 import { UNIT_LABEL } from '../core/pricing.js';
 import { humanLong } from '../core/dates.js';
@@ -76,7 +76,18 @@ async function render() {
     viewMessage(main, 'Algo no funcionó', e.message || 'Intenta de nuevo en un momento.');
   }
   if (head && head !== 'inicio') window.scrollTo(0, 0);
+  revealOnScroll(main, '.section-head, .room, .services, .loc > *, .policies > div, .rcard, .co-step, .bk-grid > *');
+  onScroll();
 }
+
+// Cabecera con sombra cuando la página ya bajó (un cálculo por cuadro, como máximo).
+let scrollTick = false;
+function onScroll() {
+  if (scrollTick) return;
+  scrollTick = true;
+  requestAnimationFrame(() => { scrollTick = false; $('.site-head')?.classList.toggle('is-scrolled', window.scrollY > 8); });
+}
+window.addEventListener('scroll', onScroll, { passive: true });
 
 // ---------- Estructura ----------
 function siteHeader() {
@@ -84,7 +95,7 @@ function siteHeader() {
   return html`${demo ? html`<div class="demo-bar" role="note">${icon('info')}<span><b>Versión de demostración.</b> Pagos simulados, tarifas estimadas y reservas de ejemplo. Nada se cobra.</span><a href="#/panel">Ver panel</a></div>` : ''}
   <header class="site-head">
     <div class="wrap head-row">
-      <a class="brand" href="#/inicio" aria-label="${S.info.business.name}, inicio">${logoMark()}<span class="brand-name">Santa Elena<small>de Maipo Home</small></span></a>
+      <a class="brand" href="#/inicio" aria-label="${S.info.business.name}, inicio">${logoMark()}<span class="brand-name">Santa Elena de Maipo<small>Home</small></span></a>
       <nav class="site-nav" aria-label="Principal">
         <a href="#/inicio#habitaciones">Habitaciones</a>
         <a href="#/inicio#ubicacion">Ubicación</a>
@@ -100,7 +111,7 @@ function siteFooter() {
   const b = S.info.business;
   return html`<footer class="site-foot">
     <div class="wrap foot-grid">
-      <div class="foot-brand">${logoMark()}<p><strong>${b.name}</strong><br>${b.address}</p></div>
+      <div class="foot-brand">${logoMark()}<p class="brand-name">Santa Elena de Maipo<small>Home</small></p><p>${b.address}</p></div>
       <div><h2 class="foot-h">Contacto</h2><p>Teléfono y WhatsApp<br><span class="mono sel">${b.phone}</span></p>${b.email ? html`<p>${b.email}</p>` : ''}<p>Recepción abierta las 24 horas</p></div>
       <div><h2 class="foot-h">Tu reserva</h2><p><a href="#/mi-reserva">Ver, cambiar o cancelar</a></p><p><a href="#/inicio#condiciones">Condiciones y políticas</a></p></div>
       <div><h2 class="foot-h">Administración</h2><p><a href="#/panel">Panel del hostal</a></p></div>
@@ -219,12 +230,14 @@ function viewHome(main) {
   const minRate = Math.min(...rooms.map((r) => r.baseRate));
   main.innerHTML = html`
   <section class="hero" aria-labelledby="hero-h">
-    <canvas class="hero-art" aria-hidden="true"></canvas>
-    <div class="wrap hero-inner">
-      <p class="eyebrow">Hostal en Temuco · Región de la Araucanía</p>
-      <h1 class="display" id="hero-h">Una casa abrigada para conocer el sur.</h1>
-      <p class="lede">Cuatro habitaciones y una cabaña con desayuno incluido, calefacción, recepción las 24 horas y estacionamiento. Reservas directo con nosotros y ves cada peso antes de pagar.</p>
-      <a class="rating" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('star')}<strong>${String(b.googleRating).replace('.', ',')}</strong> · ${b.googleReviews} opiniones en Google</a>
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Hostal en Temuco · Región de la Araucanía</p>
+        <h1 class="display" id="hero-h">Una casa abrigada para conocer <em>el sur.</em></h1>
+        <p class="lede">Cuatro habitaciones y una cabaña con desayuno incluido, calefacción, recepción las 24 horas y estacionamiento. Reservas directo con nosotros y ves cada peso antes de pagar.</p>
+        <a class="rating" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('star')}<strong>${String(b.googleRating).replace('.', ',')}</strong> · ${b.googleReviews} opiniones en Google</a>
+      </div>
+      <figure class="hero-logo"><img src="/img/logo.jpg" width="960" height="720" alt="Santa Elena de Maipo Home: la casa de madera con su arco de entrada, rodeada de araucarias y con la cordillera detrás" fetchpriority="high"></figure>
     </div>
   </section>
   <section class="wrap search-dock" id="buscar" aria-label="Buscar disponibilidad">${searchBar(s)}</section>
@@ -284,8 +297,6 @@ function viewHome(main) {
     </dl>
   </section>`;
 
-  const canvas = $('.hero-art', main);
-  S.cleanup.push(drawLandscape(canvas));
   bindSearchBar(main, s, startSearch);
   main.addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) openRoom(r.dataset.room); });
 

@@ -1,0 +1,9 @@
+# Santa Elena de Maipo Home. Todo el sitio público se puede indexar; las rutas
+# internas (API, pagos, tareas) no son páginas.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /pago/
+Disallow: /tareas/
+
+Sitemap: https://hostalsantaelena.cl/sitemap.txt

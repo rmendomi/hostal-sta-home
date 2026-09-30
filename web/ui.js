@@ -284,6 +284,24 @@ export async function copyText(text, btn) {
   }
 }
 
+// Aparición suave al entrar en pantalla. Un solo observador para todo el sitio;
+// los hermanos entran escalonados. Sin IntersectionObserver, todo queda visible.
+let revealer = null;
+export function revealOnScroll(root, selector) {
+  if (!('IntersectionObserver' in window)) return;
+  revealer ||= new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); revealer.unobserve(e.target); }
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });
+  const order = new Map();
+  for (const el of root.querySelectorAll(selector)) {
+    const i = order.get(el.parentElement) || 0;
+    order.set(el.parentElement, i + 1);
+    el.style.setProperty('--d', `${Math.min(i, 5) * 80}ms`);
+    el.setAttribute('data-reveal', '');
+    revealer.observe(el);
+  }
+}
+
 export function countdown(el, until, onEnd) {
   const tick = () => {
     const ms = new Date(until) - Date.now();
