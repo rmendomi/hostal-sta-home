@@ -210,7 +210,9 @@ export async function createApp(env = process.env) {
     const ip = ipOf(req);
 
     // Diagnóstico sin secretos: si el proceso tiene el pago activo y desde cuándo corre (para ver si un Restart surtió efecto).
-    if (path === '/salud') return json(res, 200, { ok: true, base: needsSetup() ? 'vacia' : 'lista', pagos: payments ? (cfg.payments === 'simulado' ? 'simulado' : `flow ${cfg.flowEnv}`) : 'apagado', iniciado: startedAt, pid: process.pid });
+    if (path === '/salud') return json(res, 200, { ok: true, base: needsSetup() ? 'vacia' : 'lista', pagos: payments ? (cfg.payments === 'simulado' ? 'simulado' : `flow ${cfg.flowEnv}`) : 'apagado', iniciado: startedAt, pid: process.pid,
+      // Solo nombres y largo de los valores (nunca los valores), para detectar variables mal escritas o vacías.
+      variables: Object.fromEntries(Object.keys(env).filter((k) => /flow|tarea|resend|payments/i.test(k)).map((k) => [k, String(env[k] ?? '').length])) });
 
     if (path.startsWith('/tareas')) {
       const tareaMatch = /^\/tareas\/([a-z]+)\/?$/.exec(path);
