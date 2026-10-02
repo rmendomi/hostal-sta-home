@@ -89,6 +89,8 @@ export function extraAmount(charge, { nights, guests }) {
     case 'noche': return { qty: nights, amount: charge.amount * nights };
     case 'persona': return { qty: guests, amount: charge.amount * guests };
     case 'persona_noche': return { qty: guests * nights, amount: charge.amount * guests * nights };
+    // Sin días elegidos (panel o cargo obligatorio): todos los días de la estadía, para todos.
+    case 'persona_dia': return { qty: guests * (nights + 1), amount: charge.amount * guests * (nights + 1) };
     default: throw new Error(`Unidad de cargo desconocida: ${charge.unit}`);
   }
 }
@@ -98,7 +100,15 @@ export const UNIT_LABEL = {
   noche: 'por noche',
   persona: 'por persona',
   persona_noche: 'por persona y noche',
+  persona_dia: 'por persona y día',
 };
+
+// Días en que se puede pedir un cargo por día: desde la llegada hasta la salida, ambos incluidos.
+export function stayDays(checkin, checkout) {
+  const days = [];
+  for (let d = checkin; d <= checkout; d = addDays(d, 1)) days.push(d);
+  return days;
+}
 
 // Comisión del proveedor de pago sobre un monto cobrado en línea.
 // Devuelve la comisión, su IVA, el total descontado y lo que recibe el negocio.
@@ -180,11 +190,23 @@ export function quote({ rooms, items, checkin, checkout, extras = [], seasons, d
   const disc = bestDiscount({ nights, checkin, today, discounts });
   const discount = disc ? { id: disc.id, name: disc.name, pct: disc.pct, amount: pct(lodging, disc.pct) } : null;
 
-  const chosen = new Set(extras);
+  // Cada extra elegido es su id, o { id, days, people } para los que se cobran por día elegido.
+  const chosen = new Map((extras || []).map((e) => (typeof e === 'string' ? [e, null] : [e?.id, e])));
+  const validDays = new Set(stayDays(checkin, checkout));
   const extraLines = [];
   for (const c of charges || []) {
     if (c.active === false) continue;
     if (!c.mandatory && !chosen.has(c.id)) continue;
+    const pick = chosen.get(c.id);
+    if (c.unit === 'persona_dia' && pick?.days) {
+      // Los días fuera de la estadía se descartan (por ejemplo, tras un cambio de fechas).
+      const days = [...new Set(pick.days)].filter((d) => validDays.has(d)).sort();
+      if (!days.length) continue;
+      const people = Math.min(guests, Math.max(1, Math.floor(+pick.people) || guests));
+      const qty = days.length * people;
+      extraLines.push({ id: c.id, name: c.name, unit: c.unit, unitAmount: c.amount, qty, amount: c.amount * qty, mandatory: !!c.mandatory, days, people });
+      continue;
+    }
     const { qty, amount } = extraAmount(c, { nights, guests });
     extraLines.push({ id: c.id, name: c.name, unit: c.unit, unitAmount: c.amount, qty, amount, mandatory: !!c.mandatory });
   }

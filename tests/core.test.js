@@ -67,6 +67,28 @@ test('descuentos: se aplica solo el mejor, y los extras no se descuentan', () =>
   assert.equal(q.total, 304000 - 30400 + 96000);
 });
 
+test('extras por día: se cobran solo los días y personas elegidos', () => {
+  const { svc, store } = setup();
+  store.insert('charges', { id: 'cargo-dia', name: 'Almuerzo de prueba', unit: 'persona_dia', amount: 8000, active: true });
+  const base = { checkin: '2026-10-15', checkout: '2026-10-18', items: [{ roomId: 'hab-twin', adults: 2 }] };
+  // Días repetidos o fuera de la estadía se ignoran; las personas no pasan de los huéspedes.
+  const q = svc.quote({ ...base, extras: [{ id: 'cargo-dia', days: ['2026-10-17', '2026-10-16', '2026-10-16', '2026-10-25'], people: 5 }] });
+  assert.deepEqual(q.extras[0].days, ['2026-10-16', '2026-10-17']);
+  assert.equal(q.extras[0].people, 2);
+  assert.equal(q.extras[0].amount, 8000 * 2 * 2);
+  const one = svc.quote({ ...base, extras: [{ id: 'cargo-dia', days: ['2026-10-18'], people: 1 }] });
+  assert.equal(one.extras[0].amount, 8000);
+  // Sin días marcados no hay cargo; marcado solo con su id (panel), todos los días para todos.
+  assert.equal(svc.quote({ ...base, extras: [{ id: 'cargo-dia', days: [] }] }).extras.length, 0);
+  assert.equal(svc.quote({ ...base, extras: ['cargo-dia'] }).extras[0].amount, 8000 * 2 * 4);
+  // La reserva guarda los días y, al cambiar fechas, se descartan los que quedan fuera.
+  const b = svc.admin.createBooking({ ...base, extras: [{ id: 'cargo-dia', days: ['2026-10-15', '2026-10-17'], people: 1 }], guest });
+  assert.deepEqual(store.list('bookings').find((x) => x.code === b.code).extras, [{ id: 'cargo-dia', days: ['2026-10-15', '2026-10-17'], people: 1 }]);
+  const done = svc.changeBooking(b.code, guest.email, { checkin: '2026-10-16', checkout: '2026-10-18' });
+  assert.deepEqual(done.booking.quote.extras[0].days, ['2026-10-17']);
+  assert.deepEqual(store.list('bookings').find((x) => x.code === b.code).extras, [{ id: 'cargo-dia', days: ['2026-10-17'], people: 1 }]);
+});
+
 test('anticipo total si la llegada es muy pronto', () => {
   const { svc } = setup();
   const q = svc.quote({ checkin: '2026-10-02', checkout: '2026-10-03', items: [{ roomId: 'hab-doble', adults: 2 }] });

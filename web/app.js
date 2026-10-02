@@ -4,7 +4,7 @@ import { createApi } from './api.js';
 import { html, raw, esc, $, $$, icon, clp, human, plural, addDays, diffDays, toast, openSheet, closeSheet, confirmSheet, rangePicker, guestStepper, bindSteppers, closePops, countdown, copyText, revealOnScroll, AMENITY_ICON, PAY_STATUS } from './ui.js';
 import { floorPlan, logoMark } from './art.js';
 import { ledger } from './ledger.js';
-import { UNIT_LABEL } from '../core/pricing.js';
+import { UNIT_LABEL, stayDays } from '../core/pricing.js';
 import { humanLong } from '../core/dates.js';
 
 const app = $('#app');
@@ -15,6 +15,7 @@ const S = {
   results: null,
   selection: [], // [{ roomId, adults, children }]
   extras: new Set(),
+  extraDays: {}, // { [idCargo]: { days: Set, people } } para cargos por día elegido (almuerzo, cena)
   guest: {},
   quote: null,
   cleanup: [],
@@ -539,6 +540,24 @@ async function viewCheckout(main) {
   const g = { country: 'Chile', ...ss.get('se-guest'), ...S.guest };
   const extras = S.info.extras.filter((x) => !x.mandatory);
   const deposit = S.info.deposit;
+  const days = stayDays(s.checkin, s.checkout);
+  const guests = sel.reduce((a, x) => a + (+x.adults || 0) + (+x.children || 0), 0);
+  // Los días elegidos antes se conservan solo si siguen dentro de la estadía.
+  for (const x of extras.filter((e) => e.unit === 'persona_dia')) {
+    const prev = S.extraDays[x.id];
+    S.extraDays[x.id] = { days: new Set([...(prev?.days || [])].filter((d) => days.includes(d))), people: Math.min(guests, prev?.people || guests) };
+  }
+  const extrasPayload = () => [...S.extras, ...Object.entries(S.extraDays).filter(([, v]) => v.days.size).map(([id, v]) => ({ id, days: [...v.days], people: v.people }))];
+  const extraCard = (x) => {
+    if (x.unit !== 'persona_dia') return html`<label class="extra"><input type="checkbox" value="${x.id}" ${S.extras.has(x.id) ? 'checked' : ''}><span class="extra-box"><strong>${x.name}</strong><span>${x.description}</span><span class="extra-price">${clp(x.amount)} ${UNIT_LABEL[x.unit]}</span></span></label>`;
+    const st = S.extraDays[x.id];
+    return html`<div class="extra extra-days ${st.days.size ? 'is-on' : ''}" data-xdays="${x.id}">
+      <div class="extra-box"><strong>${x.name}</strong><span>${x.description}</span><span class="extra-price">${clp(x.amount)} ${UNIT_LABEL[x.unit]}</span></div>
+      <p class="xd-q" id="xd-${x.id}">¿Qué días?</p>
+      <div class="day-chips" role="group" aria-labelledby="xd-${x.id}">${days.map((d) => html`<button type="button" class="day-chip" data-day="${d}" aria-pressed="${st.days.has(d)}">${human(d, { weekday: true })}</button>`)}</div>
+      ${guests > 1 ? html`<div class="xd-people" ${st.days.size ? '' : 'hidden'}>${guestStepper({ id: `xp-${x.id}`, label: 'Personas', sub: 'Cuántos comen cada día marcado', value: st.people, min: 1, max: guests })}</div>` : ''}
+    </div>`;
+  };
 
   main.innerHTML = html`<div class="wrap checkout">
     <div class="co-main">
@@ -551,7 +570,7 @@ async function viewCheckout(main) {
           <div><span class="muted">Salida</span><strong>${humanLong(s.checkout)}</strong><span class="muted">hasta las ${S.info.business.checkoutUntil}</span></div>
         </div>
         <ul class="stay-rooms">${sel.map((x) => { const r = S.info.rooms.find((y) => y.id === x.roomId); return html`<li>${icon('bed')}<span><strong>${r.name}</strong> · ${plural(x.adults, 'adulto', 'adultos')}${x.children ? `, ${plural(x.children, 'niño', 'niños')}` : ''}</span></li>`; })}</ul>
-        ${extras.length ? html`<h3 class="h5">Agrega a tu estadía</h3><div class="extras">${extras.map((x) => html`<label class="extra"><input type="checkbox" value="${x.id}" ${S.extras.has(x.id) ? 'checked' : ''}><span class="extra-box"><strong>${x.name}</strong><span>${x.description}</span><span class="extra-price">${clp(x.amount)} ${UNIT_LABEL[x.unit]}</span></span></label>`)}</div>` : ''}
+        ${extras.length ? html`<h3 class="h5">Agrega a tu estadía</h3><div class="extras">${extras.map(extraCard)}</div>` : ''}
       </section>
 
       <form class="co-step" id="guest-form" novalidate aria-labelledby="st2">
@@ -584,7 +603,7 @@ async function viewCheckout(main) {
 
   const redraw = async () => {
     try {
-      const q = await S.api.pub('quote', { checkin: s.checkin, checkout: s.checkout, items: sel, extras: [...S.extras] });
+      const q = await S.api.pub('quote', { checkin: s.checkin, checkout: s.checkout, items: sel, extras: extrasPayload() });
       S.quote = q;
       $('#co-ledger', main).innerHTML = ledger(q, { info: S.info });
       const p = q.payment;
@@ -600,7 +619,20 @@ async function viewCheckout(main) {
   };
   await redraw();
 
-  $$('.extra input', main).forEach((c) => c.addEventListener('change', () => { if (c.checked) S.extras.add(c.value); else S.extras.delete(c.value); redraw(); }));
+  $('.extra input', main).forEach((c) => c.addEventListener('change', () => { if (c.checked) S.extras.add(c.value); else S.extras.delete(c.value); redraw(); }));
+  $('[data-xdays]', main).forEach((box) => {
+    const st = S.extraDays[box.dataset.xdays];
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-day]');
+      if (!b) return;
+      if (st.days.has(b.dataset.day)) st.days.delete(b.dataset.day); else st.days.add(b.dataset.day);
+      b.setAttribute('aria-pressed', st.days.has(b.dataset.day));
+      box.classList.toggle('is-on', st.days.size > 0);
+      const p = $('.xd-people', box); if (p) p.hidden = !st.days.size;
+      redraw();
+    });
+    bindSteppers(box, (_, v) => { st.people = v; redraw(); });
+  });
   const form = $('#guest-form', main);
   form.addEventListener('input', () => { S.guest = Object.fromEntries(new FormData(form)); ss.set('se-guest', S.guest); });
 
@@ -618,7 +650,7 @@ async function viewCheckout(main) {
     }
     btn.disabled = true; btn.classList.add('busy');
     try {
-      const { booking, token } = await S.api.pub('createBooking', { checkin: s.checkin, checkout: s.checkout, items: sel, extras: [...S.extras], guest, acceptTerms: true });
+      const { booking, token } = await S.api.pub('createBooking', { checkin: s.checkin, checkout: s.checkout, items: sel, extras: extrasPayload(), guest, acceptTerms: true });
       ss.set(`se-t-${booking.code}`, token);
       if (booking.status === 'pendiente_pago') {
         const pay = await S.api.pub('startPayment', { code: booking.code, token });

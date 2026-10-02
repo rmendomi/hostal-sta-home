@@ -225,7 +225,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
         expiresAt: online ? new Date(now().getTime() + holdMs).toISOString() : null,
         checkin, checkout,
         items: q.items.map((i) => ({ roomId: i.roomId, roomName: i.roomName, adults: i.adults, children: i.children })),
-        extras: q.extras.map((e) => e.id),
+        extras: q.extras.map((e) => (e.days ? { id: e.id, days: e.days, people: e.people } : e.id)),
         quote: q,
         total: q.total,
         depositAmount: skipPayment ? 0 : q.payment.dueNow,
@@ -445,6 +445,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
       store.addLocks(b.items.flatMap((i) => nights.map((night) => ({ roomId: i.roomId, night, bookingId: b.id }))));
       store.update('bookings', b.id, {
         checkin, checkout, quote: q, total: q.total,
+        extras: q.extras.map((e) => (e.days ? { id: e.id, days: e.days, people: e.people } : e.id)),
         history: event(b, `Fechas cambiadas de ${b.checkin}→${b.checkout} a ${checkin}→${checkout}. Nuevo total $${q.total.toLocaleString('es-CL')}; la diferencia se ajusta en el saldo.`, { actor }),
       });
     });
@@ -750,7 +751,7 @@ const validators = {
   charges(c) {
     const name = str(c.name, 60);
     if (!name) throw new ServiceError('valor', 'El cargo necesita un nombre.');
-    if (!['reserva', 'noche', 'persona', 'persona_noche'].includes(c.unit)) throw new ServiceError('valor', 'Unidad de cobro inválida.');
+    if (!['reserva', 'noche', 'persona', 'persona_noche', 'persona_dia'].includes(c.unit)) throw new ServiceError('valor', 'Unidad de cobro inválida.');
     return {
       name, description: str(c.description, 300), unit: c.unit,
       amount: int(c.amount, { min: 0, max: 5000000, name: 'Monto' }),

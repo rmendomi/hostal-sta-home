@@ -29,7 +29,7 @@ export function ledger(q, { info, booking = null, compact = false, fees = false 
     <div class="ledger-head"><span>Detalle del precio</span><span class="mono">${q.currency} · ${plural(q.nights, 'noche', 'noches')}</span></div>
     ${lines}
     ${q.discount ? html`<div class="lg-line lg-disc"><span>${q.discount.name} (−${q.discount.pct} %)</span><span>−${clp(q.discount.amount)}</span></div>` : ''}
-    ${q.extras.map((e) => html`<div class="lg-line"><span>${e.name} · ${clp(e.unitAmount)} ${UNIT_LABEL[e.unit]}${e.unit === 'persona_noche' ? ` × ${plural(q.guests, 'persona', 'personas')} × ${plural(q.nights, 'noche', 'noches')}` : e.qty > 1 ? ` × ${e.qty}` : ''}${e.mandatory ? ' (obligatorio)' : ''}</span><span>${clp(e.amount)}</span></div>`)}
+    ${q.extras.map((e) => html`<div class="lg-line"><span>${e.name} · ${clp(e.unitAmount)} ${UNIT_LABEL[e.unit]}${e.unit === 'persona_noche' ? ` × ${plural(q.guests, 'persona', 'personas')} × ${plural(q.nights, 'noche', 'noches')}` : e.days ? ` × ${plural(e.people, 'persona', 'personas')} × ${plural(e.days.length, 'día', 'días')}` : e.qty > 1 ? ` × ${e.qty}` : ''}${e.mandatory ? ' (obligatorio)' : ''}</span><span>${clp(e.amount)}</span></div>${e.days ? html`<p class="lg-note">${e.name}: ${e.days.map((d) => human(d, { weekday: true })).join(', ')}.</p>` : ''}`)}
     <div class="lg-total"><span>Total de la estadía</span><strong>${clp(q.total)}</strong></div>
     <p class="lg-vat">${q.vat.included ? `IVA incluido (${clp(q.vat.amount)}). Sin cargos por servicio ni por reservar.` : 'Precios sin IVA.'}</p>
     ${booking ? bookingSplit(booking) : html`

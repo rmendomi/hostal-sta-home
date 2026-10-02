@@ -603,7 +603,7 @@ function rateItemSheet(kind, item, rooms, after) {
       <div class="field field-wide"><label for="i-name">Nombre</label><input id="i-name" name="name" value="${it.name}" required></div>
       <div class="field field-wide"><label for="i-d">Descripción</label><input id="i-d" name="description" value="${it.description || ''}"></div>
       <div class="field"><label for="i-am">Monto (CLP, IVA incl.)</label><input id="i-am" name="amount" inputmode="numeric" value="${it.amount}"></div>
-      <div class="field"><label for="i-u">Se cobra</label><select id="i-u" name="unit">${Object.entries(UNIT_LABEL).map(([k, t]) => html`<option value="${k}" ${it.unit === k ? 'selected' : ''}>${t}</option>`)}</select></div>
+      <div class="field"><label for="i-u">Se cobra</label><select id="i-u" name="unit">${Object.entries(UNIT_LABEL).map(([k, t]) => html`<option value="${k}" ${it.unit === k ? 'selected' : ''}>${t}${k === 'persona_dia' ? ' (el huésped elige qué días)' : ''}</option>`)}</select></div>
       <label class="check field-wide"><input type="checkbox" name="mandatory" ${it.mandatory ? 'checked' : ''}><span>Obligatorio para todas las reservas (se muestra en el precio desde la búsqueda)</span></label>
       <label class="check field-wide"><input type="checkbox" name="confirmed" ${it.status !== 'por_confirmar' ? 'checked' : ''}><span>Monto confirmado</span></label>`,
   }[kind];
