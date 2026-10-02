@@ -137,9 +137,9 @@ test('recorrido completo: reservar, pagar con débito, confirmar', async () => {
   assert.equal(again.booking.amountPaid, 22800);
   const sum = svc.admin.summary({ from: '2026-10-01', to: '2026-10-31' });
   assert.equal(sum.gross, 22800);
-  assert.equal(sum.fees, 659); // 2,89 % de 22.800 (comisión estimada de Flow)
-  assert.equal(sum.feesVat, 125);
-  assert.equal(sum.net, 22800 - 659 - 125);
+  assert.equal(sum.fees, 727); // 3,19 % de 22.800 (comisión estimada de Flow)
+  assert.equal(sum.feesVat, 138);
+  assert.equal(sum.net, 22800 - 727 - 138);
   // Buscar la reserva exige el correo correcto.
   assert.throws(() => svc.getBooking(b.code, 'otro@correo.cl'), /No encontramos/);
   assert.equal(svc.getBooking(b.code.toLowerCase(), 'ANA@example.cl').code, b.code);

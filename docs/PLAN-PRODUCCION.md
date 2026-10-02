@@ -41,6 +41,6 @@ Queda para el dueño: los pasos de cPanel de [DESPLIEGUE-NINJAHOSTING.md](DESPLI
 | NinjaHosting Wako | $59.900 + IVA al año (ya contratado) | [ninjahosting.cl](https://www.ninjahosting.cl/web-hosting-chile) |
 | Dominio hostalsantaelena.cl | $9.990 al año (ya comprado) | [nic.cl](https://www.nic.cl/dominios/tarifas.html) |
 | SSL, cron, base de datos | Incluidos | — |
-| Flow | Sin mensualidad; cerca de 2,89 % + IVA por venta (confirmar en el contrato) | [Flow](https://www.flow.cl) |
+| Flow | Sin mensualidad; 3,19 % + IVA con Webpay, abono al día hábil siguiente | [Flow](https://www.flow.cl) |
 | Correos (Resend) | Gratis hasta 3.000 al mes | [resend.com](https://resend.com/pricing) |
 | Demo en Vercel | Gratis | — |

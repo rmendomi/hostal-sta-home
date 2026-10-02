@@ -8,14 +8,14 @@ export const PROVIDER_FLOW = {
   provider: 'flow',
   providerName: 'Flow',
   environment: 'sandbox', // 'sandbox' (pruebas) | 'produccion'
-  // Comisión publicada por Flow, sin IVA, igual para débito y crédito. Confirmar
+  // Comisión de Flow con Webpay y abono al día hábil siguiente, sin IVA. Confirmar
   // la tarifa del contrato en el panel; en cada pago se usa la que informa Flow.
-  rates: { credit: 0.0289, debit: 0.0289, prepaid: 0.0289 },
+  rates: { credit: 0.0319, debit: 0.0319, prepaid: 0.0319 },
   minFeeUF: { credit: 0, debit: 0, prepaid: 0 },
   feeVatRate: 0.19,
   ufValue: 41016,
   monthlyFee: 0,
-  payoutDays: { debit: '1 a 2 días hábiles', credit: '1 a 2 días hábiles' },
+  payoutDays: { debit: 'el día hábil siguiente', credit: 'el día hábil siguiente' },
   source: 'https://www.flow.cl',
   verifiedAt: '2026-10-02',
 };
