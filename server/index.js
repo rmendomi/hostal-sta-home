@@ -89,7 +89,8 @@ export async function createApp(env = process.env) {
     return timingSafeEqual(got, tareaKey);
   }
   const TAREAS = {
-    correos: async () => { await mailer.tick(); return { ok: true, configured: !!env.RESEND_API_KEY }; },
+    // También libera reservas vencidas: así un solo cron frecuente cubre ambas cosas.
+    correos: async () => { svc.sweepExpired(); await mailer.tick(); return { ok: true, configured: !!env.RESEND_API_KEY }; },
     vencer: async () => { svc.sweepExpired(); return { ok: true }; },
     respaldo: async () => backupNow(),
   };
