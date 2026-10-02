@@ -16,6 +16,7 @@
 .adm-env { font-size: 12px; padding: 6px 10px; border-radius: var(--r-sm); margin: 0 0 6px; }
 .adm-env-demo { background: var(--warn-bg); color: var(--warn); }
 .adm-env-live { background: var(--ok-bg); color: var(--ok); }
+.adm-env-off { background: var(--bad-bg); color: var(--bad); }
 .adm-main { padding: 24px clamp(16px, 3vw, 36px) 64px; min-width: 0; }
 .adm-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 14px; margin-bottom: 20px; }
 .adm-head p { margin: 6px 0 0; }

@@ -279,7 +279,7 @@ export async function createApp(env = process.env) {
           const who = auth.fromRequest(req);
           if (!who) return json(res, 401, { error: 'Inicia sesión para continuar.' });
           if (method === 'logout') { auth.logout(req); return json(res, 200, { ok: true }, { 'Set-Cookie': auth.cookie('', 0) }); }
-          if (method === 'me') return json(res, 200, { admin: who.admin, environment: store.getSettings().payment?.environment, server: true, mail: { connected: !!env.RESEND_API_KEY, from: env.MAIL_FROM || '' } });
+          if (method === 'me') return json(res, 200, { admin: who.admin, environment: store.getSettings().payment?.environment, paymentsReady: !!payments, server: true, mail: { connected: !!env.RESEND_API_KEY, from: env.MAIL_FROM || '' } });
           if (method === 'mailTest') {
             const r = await mailer.test(who.admin.email);
             return r.ok ? json(res, 200, { ok: true, to: who.admin.email }) : json(res, 400, { error: `No se pudo enviar: ${r.error}` });

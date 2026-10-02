@@ -42,7 +42,7 @@ export async function renderAdmin({ api, info, root, go, rest }) {
       <a class="brand" href="#/inicio" aria-label="Ver el sitio público">${logoMark()}<span class="brand-name">Santa Elena<small>Panel</small></span></a>
       <nav class="adm-nav" aria-label="Panel">${NAV.map(([k, i, t]) => html`<a href="#/panel${k ? `/${k}` : ''}" class="${section === k ? 'on' : ''}" ${section === k ? raw('aria-current="page"') : ''}>${icon(i)}<span>${t}</span></a>`)}</nav>
       <div class="adm-side-foot">
-        ${api.mode === 'demo' ? html`<p class="adm-env adm-env-demo">Demostración · pagos simulados</p>` : html`<p class="adm-env ${me.environment === 'produccion' ? 'adm-env-live' : 'adm-env-demo'}">Pagos: ${me.environment === 'produccion' ? 'producción' : me.environment === 'simulado' ? 'simulado' : 'pruebas (sandbox)'}</p>`}
+        ${api.mode === 'demo' ? html`<p class="adm-env adm-env-demo">Demostración · pagos simulados</p>` : me.paymentsReady === false ? html`<p class="adm-env adm-env-off">Pago en línea apagado: faltan FLOW_API_KEY y FLOW_SECRET_KEY en cPanel</p>` : html`<p class="adm-env ${me.environment === 'produccion' ? 'adm-env-live' : 'adm-env-demo'}">Pagos: ${me.environment === 'produccion' ? 'producción' : me.environment === 'simulado' ? 'simulado' : 'pruebas (sandbox)'}</p>`}
         <a href="#/inicio" class="adm-link">${icon('house')} Ver sitio</a>
         <button class="adm-link" id="logout">${icon('logout')} Salir</button>
       </div>
