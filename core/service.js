@@ -380,6 +380,19 @@ export function createService({ store, now = () => new Date(), random = Math.ran
     return { booking: view(done), payment: payStatus };
   }
 
+  // El huésped desiste antes de pagar (el pago no pudo iniciarse o volvió a buscar):
+  // se liberan las noches sin enviar correo. Si después igual paga, finishPayment
+  // intenta recuperar las mismas noches como con cualquier reserva expirada.
+  function releaseHold(code, email) {
+    const b = requireBooking(code, email);
+    if (b.status !== 'pendiente_pago') return view(b);
+    store.tx(() => {
+      store.removeLocks({ bookingId: b.id });
+      store.update('bookings', b.id, { status: 'expirada', expiresAt: null, history: event(b, 'Noches liberadas: el huésped no completó el pago y volvió a buscar.') });
+    });
+    return view(store.get('bookings', b.id));
+  }
+
   // ---------- Cambios y cancelación ----------
 
   async function cancelBooking(code, email, { reason = '', actor = 'huesped' } = {}) {
@@ -692,7 +705,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
 
   return {
     today, publicInfo, search, availabilityCalendar, quote, createBooking, getBooking, startPayment, finishPayment,
-    cancelBooking, previewChange, changeBooking, sweepExpired, admin,
+    cancelBooking, releaseHold, previewChange, changeBooking, sweepExpired, admin,
   };
 }
 

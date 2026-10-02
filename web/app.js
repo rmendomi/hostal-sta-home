@@ -470,6 +470,12 @@ async function viewResults(main) {
   S.search = s;
   main.innerHTML = html`<section class="results-top"><div class="wrap">${searchBar(s, { compact: true })}</div></section><section class="wrap section-tight" id="res"><p class="loading">Buscando habitaciones libres…</p></section>`;
   bindSearchBar(main, s, startSearch, { auto: true });
+  // Si el huésped dejó una reserva sin pagar (salió del pago y volvió a buscar), se liberan sus noches.
+  const pending = ss.get('se-pending');
+  if (pending) {
+    try { await S.api.pub('releaseBooking', pending); } catch { /* ya pagada, vencida o inexistente */ }
+    ss.set('se-pending', null);
+  }
   let res;
   try { res = await S.api.pub('search', s); } catch (e) {
     $('#res', main).innerHTML = html`<div class="alert alert-bad">${icon('alert')}<p>${e.message}</p></div>`;
@@ -477,6 +483,8 @@ async function viewResults(main) {
   }
   S.results = res;
   const sel = S.selection;
+  // Una habitación elegida antes puede haberse ocupado: se quita de la selección.
+  for (let i = sel.length - 1; i >= 0; i--) if (!res.results.find((r) => r.room.id === sel[i].roomId)?.available) sel.splice(i, 1);
   const drawSel = async () => {
     const bar = $('#selbar', main);
     if (!sel.length) { bar.hidden = true; return; }
@@ -704,7 +712,14 @@ async function viewCheckout(main) {
       const { booking, token } = await S.api.pub('createBooking', { checkin: s.checkin, checkout: s.checkout, items: sel, extras: extrasPayload(), guest, acceptTerms: true });
       ss.set(`se-t-${booking.code}`, token);
       if (booking.status === 'pendiente_pago') {
-        const pay = await S.api.pub('startPayment', { code: booking.code, token });
+        ss.set('se-pending', { code: booking.code, token });
+        let pay;
+        try { pay = await S.api.pub('startPayment', { code: booking.code, token }); } catch (err) {
+          // El pago no pudo iniciarse: se liberan las noches para no bloquearlas 15 minutos.
+          await S.api.pub('releaseBooking', { code: booking.code, token }).catch(() => {});
+          ss.set('se-pending', null);
+          throw err;
+        }
         S.api.goToPayment(pay);
       } else go(`reserva/${booking.code}/${token}/confirmada`);
     } catch (err) {

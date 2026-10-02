@@ -89,6 +89,19 @@ test('extras por día: se cobran solo los días y personas elegidos', () => {
   assert.deepEqual(store.list('bookings').find((x) => x.code === b.code).extras, [{ id: 'cargo-dia', days: ['2026-10-17'], people: 1 }]);
 });
 
+test('liberar una reserva sin pagar devuelve las noches y no toca las confirmadas', () => {
+  const { svc } = setup();
+  const b = svc.createBooking({ checkin: '2026-11-10', checkout: '2026-11-12', items: [{ roomId: 'hab-doble', adults: 2 }], guest, acceptTerms: true });
+  assert.equal(b.status, 'pendiente_pago');
+  const free = () => svc.search({ checkin: '2026-11-10', checkout: '2026-11-12', adults: 2 }).results.find((r) => r.room.id === 'hab-doble').available;
+  assert.equal(free(), false);
+  assert.throws(() => svc.releaseHold(b.code, 'otro@correo.cl'), /No encontramos/);
+  assert.equal(svc.releaseHold(b.code, guest.email).status, 'expirada');
+  assert.equal(free(), true);
+  const c = svc.admin.createBooking({ checkin: '2026-11-20', checkout: '2026-11-21', items: [{ roomId: 'hab-doble', adults: 1 }], guest });
+  assert.equal(svc.releaseHold(c.code, guest.email).status, 'confirmada');
+});
+
 test('anticipo total si la llegada es muy pronto', () => {
   const { svc } = setup();
   const q = svc.quote({ checkin: '2026-10-02', checkout: '2026-10-03', items: [{ roomId: 'hab-doble', adults: 2 }] });

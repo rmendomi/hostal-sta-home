@@ -46,6 +46,10 @@ export function createRpc({ svc, sign, returnUrl, confirmUrl = () => '' }) {
       const { code, email } = await identify(a);
       return svc.cancelBooking(code, email, { reason: a.reason || '' });
     },
+    async releaseBooking(a) {
+      const { code, email } = await identify(a);
+      return svc.releaseHold(code, email);
+    },
     async previewChange(a) {
       const { code, email } = await identify(a);
       return svc.previewChange(code, email, a);

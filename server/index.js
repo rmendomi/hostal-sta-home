@@ -266,7 +266,7 @@ export async function createApp(env = process.env) {
         if (area === 'public') {
           const fn = Object.hasOwn(rpc.publicApi, method) ? rpc.publicApi[method] : null;
           if (!fn) return json(res, 404, { error: 'No encontrado.' });
-          const heavy = ['createBooking', 'getBooking', 'cancelBooking', 'changeBooking', 'startPayment'].includes(method);
+          const heavy = ['createBooking', 'getBooking', 'cancelBooking', 'releaseBooking', 'changeBooking', 'startPayment'].includes(method);
           if (limited(ip, heavy ? 'pub-heavy' : 'pub', heavy ? 30 : 240, 10 * 60000)) return json(res, 429, { error: 'Demasiadas solicitudes. Espera unos minutos.' });
           return json(res, 200, await fn(await readJson(req)));
         }
