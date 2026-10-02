@@ -754,7 +754,7 @@ async function viewSettings(main) {
 
     <section class="panel" id="house">
       <div class="panel-head"><h2 class="h4">Fotos de la casa</h2></div>
-      <p class="muted small">Fachada, living, comedor, desayuno, jardín. La primera es la foto grande de la portada (mejor si es horizontal); las siguientes, hasta 6, se muestran en la sección "La casa". Si en la descripción de una foto escribes "baño" (por ejemplo "Baño compartido"), también aparece en las habitaciones con baño compartido.</p>
+      <p class="muted small">Fachada, living, comedor, desayuno, jardín. Se muestran en la sección "La casa": la primera en grande (mejor si es horizontal y luminosa) y las cuatro siguientes al lado; el resto se ve al ampliar. Si en la descripción de una foto escribes "baño" (por ejemplo "Baño compartido"), también aparece en las habitaciones con baño compartido.</p>
       <div class="photos" data-photos></div>
       <div class="row-end"><label class="btn btn-soft btn-sm upload">${icon('image')} Subir fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-upload></label><button class="btn btn-primary btn-sm" id="house-save" type="button">Guardar fotos</button></div>
     </section>

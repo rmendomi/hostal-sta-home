@@ -261,8 +261,7 @@ function viewHome(main) {
           ${b.whatsapp ? html`<a class="rating" href="${waHref(b)}" target="_blank" rel="noopener">${icon('chat')}Consultar por WhatsApp</a>` : ''}
         </div>
       </div>
-      ${house[0] ? html`<figure class="hero-photo">${photoImg(house[0], 'Santa Elena de Maipo Home', { sizes: '(max-width: 900px) 100vw, 46vw', eager: true })}</figure>`
-        : html`<figure class="hero-logo"><img src="/img/logo.jpg" width="960" height="720" alt="Santa Elena de Maipo Home: la casa de madera con su arco de entrada, rodeada de araucarias y con la cordillera detrás" fetchpriority="high"></figure>`}
+      <figure class="hero-logo"><img src="/img/logo.jpg" width="960" height="720" alt="Santa Elena de Maipo Home: la casa de madera con su arco de entrada, rodeada de araucarias y con la cordillera detrás" fetchpriority="high"></figure>
     </div>
   </section>
   <section class="wrap search-dock" id="buscar" aria-label="Buscar disponibilidad">${searchBar(s)}
@@ -279,7 +278,7 @@ function viewHome(main) {
       ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En todas las habitaciones y la cabaña.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
         .map(([i, t, d]) => html`<li>${icon(i)}<div><strong>${t}</strong><span>${d}</span></div></li>`)}
     </ul>
-    ${house.length > 1 ? html`<div class="house-photos">${house.slice(1, 7).map((p, i) => html`<button type="button" class="hp" data-house="${i + 1}" aria-label="Ampliar foto: ${p.alt || 'la casa'}">${photoImg(p, 'La casa', { sizes: '(max-width: 760px) 50vw, 33vw' })}</button>`)}</div>` : ''}
+    ${house.length ? html`<div class="house-photos n${Math.min(house.length, 5)}">${house.slice(0, 5).map((p, i) => html`<button type="button" class="hp" data-house="${i}" aria-label="Ampliar foto: ${p.alt || 'la casa'}">${photoImg(p, 'La casa', { sizes: i === 0 ? '(max-width: 760px) 100vw, 560px' : '(max-width: 760px) 50vw, 280px' })}${i === 4 && house.length > 5 ? html`<span class="hp-more">+${house.length - 5} fotos</span>` : ''}</button>`)}</div>` : ''}
   </section>
 
   <section class="wrap section" id="habitaciones" aria-labelledby="hab-h">
