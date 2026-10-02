@@ -303,7 +303,14 @@ export function createService({ store, now = () => new Date(), random = Math.ran
     if (!payments) throw new ServiceError('pagos', 'El pago en línea no está configurado.', 503);
     const s = settings();
     const buyOrder = `${b.code.replace('-', '')}${Date.now().toString(36).slice(-4).toUpperCase()}`.slice(0, 26);
-    const res = await payments.create({ buyOrder, sessionId: b.id, amount: b.depositAmount, returnUrl, confirmUrl, email: b.guest?.email, subject: `Reserva ${b.code} · ${s.business?.name || 'Santa Elena de Maipo Home'}` });
+    let res;
+    try {
+      res = await payments.create({ buyOrder, sessionId: b.id, amount: b.depositAmount, returnUrl, confirmUrl, email: b.guest?.email, subject: `Reserva ${b.code} · ${s.business?.name || 'Santa Elena de Maipo Home'}` });
+    } catch (e) {
+      // Se muestra lo que respondió la pasarela (sin datos sensibles) para poder corregirlo.
+      console.error('inicio de pago', e);
+      throw new ServiceError('pasarela', `No pudimos abrir la página de pago (${String(e.message || e).slice(0, 180)}). Intenta de nuevo en un momento.`, 502);
+    }
     store.insert('payments', {
       bookingId: b.id, kind: 'cargo', provider: s.payment?.provider || 'flow', method: 'online',
       amount: b.depositAmount, status: 'iniciado', providerRef: res.token, buyOrder, createdAt: iso(),

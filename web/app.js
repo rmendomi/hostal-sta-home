@@ -709,6 +709,9 @@ async function viewCheckout(main) {
     }
     btn.disabled = true; btn.classList.add('busy');
     try {
+      // Un intento anterior que no llegó a pagar no debe bloquear este.
+      const prev = ss.get('se-pending');
+      if (prev) { await S.api.pub('releaseBooking', prev).catch(() => {}); ss.set('se-pending', null); }
       const { booking, token } = await S.api.pub('createBooking', { checkin: s.checkin, checkout: s.checkout, items: sel, extras: extrasPayload(), guest, acceptTerms: true });
       ss.set(`se-t-${booking.code}`, token);
       if (booking.status === 'pendiente_pago') {

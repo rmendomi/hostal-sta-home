@@ -157,3 +157,14 @@ test('confirmación de la pasarela y regreso del huésped: el pago se registra u
   assert.match(r2.headers.get('location'), /\/anulado$/);
 });
 
+
+test('reintento: liberar la reserva sin pagar permite reservar de nuevo las mismas noches', async () => {
+  const body = { checkin: d(60), checkout: d(62), items: [{ roomId: 'hab-doble', adults: 2 }], guest, acceptTerms: true };
+  const a = await post('/api/public/createBooking', body);
+  assert.equal(a.status, 200);
+  assert.equal((await post('/api/public/createBooking', body)).status, 409);
+  const r = await post('/api/public/releaseBooking', { code: a.body.booking.code, token: a.body.token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.status, 'expirada');
+  assert.equal((await post('/api/public/createBooking', body)).status, 200);
+});
