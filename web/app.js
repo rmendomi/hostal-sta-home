@@ -389,6 +389,8 @@ function openRoom(id, { fromResults = null } = {}) {
   const r = S.info.rooms.find((x) => x.id === id);
   if (!r) return;
   const photos = r.photos || [];
+  // Fotos de la casa descritas como baño: se muestran en las habitaciones que lo comparten.
+  const bath = r.bathroom === 'compartido' ? (S.info.housePhotos || []).filter((p) => /ba[ñn]o/i.test(p.alt || '')) : [];
   const sheet = openSheet(html`<article class="room-detail">
     <div class="gallery">${photos.length ? html`<div class="gallery-track" tabindex="0" aria-label="Fotos de ${r.name}">${photos.map((p, i) => photoImg(p, `${r.name}, foto ${i + 1}`, { sizes: '(max-width: 760px) 100vw, 900px', eager: i === 0 }))}</div>${photos.length > 1 ? html`<button type="button" class="icon-btn g-prev" data-gal="-1" aria-label="Foto anterior">${icon('left')}</button><button type="button" class="icon-btn g-next" data-gal="1" aria-label="Foto siguiente">${icon('right')}</button>` : ''}` : html`<div class="plan-bg plan-big">${floorPlan(r)}</div>`}</div>
     <div class="rd-body">
@@ -396,6 +398,7 @@ function openRoom(id, { fromResults = null } = {}) {
       ${roomFacts(r)}
       <p>${r.description}</p>
       ${!photos.length ? html`<p class="note">${icon('image')} Pronto subiremos fotos de esta habitación. Mientras, te mostramos un plano referencial con sus camas.</p>` : html`<details class="plan-more"><summary>Ver plano referencial</summary><div class="plan-bg">${floorPlan(r)}</div></details>`}
+      ${bath.length ? html`<h3 class="h4">Baño compartido</h3><div class="bath-photos">${bath.map((p) => html`<figure>${photoImg(p, 'Baño compartido', { sizes: '(max-width: 760px) 50vw, 300px' })}<figcaption>${p.alt}</figcaption></figure>`)}</div>` : ''}
       <h3 class="h4">Qué incluye</h3>
       <ul class="amenities">${r.amenities.map((a) => html`<li>${icon(AMENITY_ICON(a))}${a}</li>`)}</ul>
       <h3 class="h4">Condiciones</h3>

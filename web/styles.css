@@ -610,6 +610,10 @@ input:hover, select:hover, textarea:hover { border-color: var(--ink-3); }
 .gallery .g-prev, .gallery .g-next { position: absolute; top: 50%; transform: translateY(-50%); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow); }
 .gallery .g-prev { left: 10px; }
 .gallery .g-next { right: 10px; }
+.bath-photos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bath-photos figure { margin: 0; }
+.bath-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r); background: var(--crema); }
+.bath-photos figcaption { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
 .plan-more { margin: 10px 0 4px; }
 .plan-more summary { cursor: pointer; font-size: 14px; color: var(--ink-3); }
 .plan-more .plan-bg { margin-top: 10px; }
