@@ -255,7 +255,7 @@ function viewHome(main) {
     <div class="wrap hero-grid">
       <div class="hero-copy">
         <h1 id="hero-h"><span class="eyebrow">Hostal en Temuco · Región de la Araucanía</span><span class="display">Una casa abrigada para conocer <em>el sur.</em></span></h1>
-        <p class="lede">Cuatro habitaciones y una cabaña con desayuno incluido, calefacción, recepción las 24 horas y estacionamiento. Reservas directo con nosotros y ves cada peso antes de pagar.</p>
+        <p class="lede">Un hostal familiar de madera en Villa Santa Elena de Maipo, al poniente de Temuco: cuatro habitaciones y una cabaña. Reservas directo con nosotros y ves cada peso antes de pagar.</p>
         <div class="hero-links">
           <a class="rating" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('star')}<strong>${String(b.googleRating).replace('.', ',')}</strong> · ${b.googleReviews} opiniones en Google</a>
           ${b.whatsapp ? html`<a class="rating" href="${waHref(b)}" target="_blank" rel="noopener">${icon('chat')}Consultar por WhatsApp</a>` : ''}
@@ -271,6 +271,15 @@ function viewHome(main) {
       <li>${icon('receipt')}Precio final con IVA incluido</li>
       <li>${icon('lock')}Pago seguro con ${S.info.payment?.providerName || 'Webpay'}</li>
     </ul>
+  </section>
+
+  <section class="wrap section" id="la-casa" aria-labelledby="serv-h">
+    <div class="section-head"><h2 class="h2" id="serv-h">La casa</h2><p>Lo que viene con tu estadía y lo que puedes pedir.</p></div>
+    <ul class="services">
+      ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En todas las habitaciones y la cabaña.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
+        .map(([i, t, d]) => html`<li>${icon(i)}<div><strong>${t}</strong><span>${d}</span></div></li>`)}
+    </ul>
+    ${house.length > 1 ? html`<div class="house-photos">${house.slice(1, 7).map((p, i) => html`<button type="button" class="hp" data-house="${i + 1}" aria-label="Ampliar foto: ${p.alt || 'la casa'}">${photoImg(p, 'La casa', { sizes: '(max-width: 760px) 50vw, 33vw' })}</button>`)}</div>` : ''}
   </section>
 
   <section class="wrap section" id="habitaciones" aria-labelledby="hab-h">
@@ -292,15 +301,6 @@ function viewHome(main) {
         </div>
       </article>`)}
     </div>
-  </section>
-
-  <section class="wrap section" aria-labelledby="serv-h">
-    <div class="section-head"><h2 class="h2" id="serv-h">La casa</h2><p>Un hostal familiar en Villa Santa Elena de Maipo, al poniente de Temuco.</p></div>
-    <ul class="services">
-      ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En todas las habitaciones y la cabaña.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
-        .map(([i, t, d]) => html`<li>${icon(i)}<div><strong>${t}</strong><span>${d}</span></div></li>`)}
-    </ul>
-    ${house.length > 1 ? html`<div class="house-photos">${house.slice(1, 7).map((p, i) => html`<button type="button" class="hp" data-house="${i + 1}" aria-label="Ampliar foto: ${p.alt || 'la casa'}">${photoImg(p, 'La casa', { sizes: '(max-width: 760px) 50vw, 33vw' })}</button>`)}</div>` : ''}
   </section>
 
   <section class="wrap section loc" id="ubicacion" aria-labelledby="ubi-h">

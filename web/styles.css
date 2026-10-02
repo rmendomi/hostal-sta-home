@@ -296,7 +296,12 @@ input:hover, select:hover, textarea:hover { border-color: var(--ink-3); }
 .services strong { display: block; font: 700 19px/1.2 var(--f-display); margin-bottom: 2px; }
 .services span { font-size: 14px; color: var(--ink-3); }
 @media (max-width: 960px) { .services { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .services { grid-template-columns: 1fr; } }
+/* En celular: dos columnas compactas, solo ícono y título, para no empujar las habitaciones. */
+@media (max-width: 480px) {
+  .services li { flex-direction: column; gap: 8px; padding: 14px; }
+  .services strong { font-size: 16px; margin: 0; }
+  .services span { display: none; }
+}
 
 /* Ubicación y opiniones */
 .loc { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; }
