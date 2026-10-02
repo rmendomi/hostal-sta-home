@@ -17,7 +17,8 @@ export async function createApi() {
     } catch {
       throw new ApiError('No pudimos conectarnos. Revisa tu conexión e intenta de nuevo.');
     }
-    const d = await r.json().catch(() => ({ error: 'Respuesta inesperada del servidor.' }));
+    // Si no llega JSON, la respuesta vino de Apache/Passenger y no de la app: se muestra el código para saber qué la cortó.
+    const d = await r.json().catch(() => ({ error: `Respuesta inesperada del servidor (código ${r.status}${r.statusText ? ` ${r.statusText}` : ''}).` }));
     if (!r.ok) throw new ApiError(d.error || 'Algo falló.', { status: r.status, code: d.code, fields: d.fields });
     return d;
   };
