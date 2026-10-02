@@ -92,12 +92,12 @@ test('panel: exige sesión y permite gestionar', async () => {
   assert.equal(up.status, 400);
   // Subida binaria (como la envía el panel): PNG mínimo con su firma.
   const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(32)]);
-  const bin = await fetch(base + '/api/admin/upload', { method: 'POST', headers: { ...h, 'Content-Type': 'image/png', 'X-File-Name': encodeURIComponent('fachada ñ.png') }, body: png });
+  const bin = await fetch(base + '/api/admin/upload', { method: 'POST', headers: { ...h, 'Content-Type': 'application/octet-stream', 'X-File-Type': 'image/png', 'X-File-Name': encodeURIComponent('fachada ñ.png') }, body: png });
   const binBody = await bin.json();
   assert.equal(bin.status, 200);
   assert.match(binBody.url, /^\/uploads\/[\w-]+\.png$/);
   assert.equal(binBody.name, 'fachada ñ.png');
-  const fake = await fetch(base + '/api/admin/upload', { method: 'POST', headers: { ...h, 'Content-Type': 'image/png' }, body: Buffer.from('no es imagen') });
+  const fake = await fetch(base + '/api/admin/upload', { method: 'POST', headers: { ...h, 'Content-Type': 'application/octet-stream', 'X-File-Type': 'image/png' }, body: Buffer.from('no es imagen') });
   assert.equal(fake.status, 400);
 });
 

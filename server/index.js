@@ -293,9 +293,11 @@ export async function createApp(env = process.env) {
           }
           if (method === 'tareas') return json(res, 200, { enabled: !!tareaKey, runs: store.getSettings().tareas || {} });
           if (method === 'upload') {
-            // La foto llega como binario (image/*): el firewall del hosting bloqueaba el base64 dentro de JSON.
-            const type = String(req.headers['content-type'] || '').split(';')[0].trim();
-            if (!type.startsWith('image/')) return json(res, 200, await upload(await readJson(req, 12_000_000)));
+            // La foto llega como binario octet-stream con su tipo en X-File-Type: el hosting bloquea
+            // el base64 grande dentro de JSON y también cualquier POST con Content-Type image/*.
+            const ct = String(req.headers['content-type'] || '').split(';')[0].trim();
+            if (ct !== 'application/octet-stream' && !ct.startsWith('image/')) return json(res, 200, await upload(await readJson(req, 12_000_000)));
+            const type = ct.startsWith('image/') ? ct : String(req.headers['x-file-type'] || '').trim();
             let name = '';
             try { name = decodeURIComponent(String(req.headers['x-file-name'] || '')); } catch { /* nombre ilegible: se omite */ }
             const buf = await readRaw(req, 9_000_000);
