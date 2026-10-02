@@ -176,9 +176,16 @@ function searchBar(s, { compact = false } = {}) {
 }
 const guestText = (s) => `${plural(s.adults, 'adulto', 'adultos')}${s.children ? `, ${plural(s.children, 'niño', 'niños')}` : ''}`;
 
-function bindSearchBar(root, s, onSubmit) {
+// auto: en los resultados, cambiar fechas o huéspedes vuelve a buscar sin apretar el botón.
+function bindSearchBar(root, s, onSubmit, { auto = false } = {}) {
   const form = $('#searchbar', root);
   const state = { ...s };
+  let timer = null;
+  const autoSearch = () => {
+    clearTimeout(timer);
+    const changed = ['checkin', 'checkout', 'adults', 'children'].some((k) => state[k] !== s[k]);
+    if (auto && changed && state.checkin && state.checkout) onSubmit({ ...state });
+  };
   const upd = () => {
     $('#sb-in', form).textContent = state.checkin ? human(state.checkin, { weekday: true }) : 'Elegir';
     $('#sb-out', form).textContent = state.checkout ? human(state.checkout, { weekday: true }) : 'Elegir';
@@ -190,14 +197,19 @@ function bindSearchBar(root, s, onSubmit) {
   form.addEventListener('click', (e) => {
     const f = e.target.closest('[data-pop]');
     if (!f) return;
-    if (f.dataset.pop === 'dates') { openDates(state, () => { upd(); }); return; }
+    if (f.dataset.pop === 'dates') { openDates(state, upd, autoSearch); return; }
     const pop = f.nextElementSibling;
     const open = !pop.classList.contains('open');
     closePops();
     if (open) { pop.classList.add('open'); f.setAttribute('aria-expanded', 'true'); $('button:not([disabled])', pop)?.focus(); }
   });
-  bindSteppers(form, (id, v) => { if (id === 'g-adults') state.adults = v; else state.children = v; upd(); });
-  $('.pop-done', form)?.addEventListener('click', () => closePops());
+  bindSteppers(form, (id, v) => {
+    if (id === 'g-adults') state.adults = v; else state.children = v;
+    upd();
+    // Espera a que termine de ajustar la cantidad antes de buscar.
+    if (auto) { clearTimeout(timer); timer = setTimeout(autoSearch, 900); }
+  });
+  $('.pop-done', form)?.addEventListener('click', () => { closePops(); autoSearch(); });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!state.checkin || !state.checkout) { openDates(state, upd); return; }
@@ -205,8 +217,11 @@ function bindSearchBar(root, s, onSubmit) {
   });
 }
 
-function openDates(state, after) {
-  const sheet = openSheet(`<h2 class="h3">¿Cuándo vienes?</h2><div id="rp"></div><div class="row-end rp-actions"><button class="btn btn-ghost" data-clear>Borrar</button><button class="btn btn-primary" data-ok>Listo</button></div>`, { label: 'Elegir fechas', wide: true });
+function openDates(state, after, onDone = null) {
+  // onDone corre una sola vez al cerrar (Listo, X, Escape o fuera), cuando la hoja ya no está.
+  let done = false;
+  const onClose = onDone ? () => { if (!done) { done = true; setTimeout(onDone, 0); } } : undefined;
+  const sheet = openSheet(`<h2 class="h3">¿Cuándo vienes?</h2><div id="rp"></div><div class="row-end rp-actions"><button class="btn btn-ghost" data-clear>Borrar</button><button class="btn btn-primary" data-ok>Listo</button></div>`, { label: 'Elegir fechas', wide: true, onClose });
   const months = matchMedia('(min-width: 760px)').matches ? 2 : 1;
   const picker = rangePicker($('#rp', sheet), {
     checkin: state.checkin, checkout: state.checkout, today: S.info.today, months,
@@ -431,7 +446,7 @@ async function viewResults(main) {
   if (!s) return go('inicio', { replace: true });
   S.search = s;
   main.innerHTML = html`<section class="results-top"><div class="wrap">${searchBar(s, { compact: true })}</div></section><section class="wrap section-tight" id="res"><p class="loading">Buscando habitaciones libres…</p></section>`;
-  bindSearchBar(main, s, startSearch);
+  bindSearchBar(main, s, startSearch, { auto: true });
   let res;
   try { res = await S.api.pub('search', s); } catch (e) {
     $('#res', main).innerHTML = html`<div class="alert alert-bad">${icon('alert')}<p>${e.message}</p></div>`;
