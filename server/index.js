@@ -113,6 +113,8 @@ export async function createApp(env = process.env) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-site',
     'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; form-action 'self' https://webpay3g.transbank.cl https://webpay3gint.transbank.cl; frame-ancestors 'none'; base-uri 'self'",
     ...(secure ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
   };
@@ -147,7 +149,7 @@ export async function createApp(env = process.env) {
     return origin === cfg.baseUrl || origin === `http://${req.headers.host}` || origin === `https://${req.headers.host}`;
   }
 
-  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json' };
+  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.webmanifest': 'application/manifest+json' };
   async function serveFile(res, file, cache = 'public, max-age=300') {
     try {
       const st = await stat(file);
@@ -340,6 +342,7 @@ export async function createApp(env = process.env) {
 
     if (path === '/admin' || path === '/admin/' || path === '/panel') return send(res, 302, '', { Location: '/#/panel' });
     const webRoot = join(ROOT, 'web');
+    if (path === '/' || path === '/index.html') return send(res, 200, await indexPage(webRoot), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     const file = path === '/' ? join(webRoot, 'index.html') : safeJoin(webRoot, path.slice(1));
     const coreFile = path.startsWith('/core/') ? safeJoin(join(ROOT, 'core'), path.slice('/core/'.length)) : null;
     if (coreFile && await serveFile(res, coreFile)) return;
@@ -347,6 +350,32 @@ export async function createApp(env = process.env) {
     // Para llamadas que no son de navegador (cron, integraciones) se muestra qué ruta llegó.
     const detail = req.method === 'GET' || req.method === 'HEAD' ? '' : ` (${req.method} ${JSON.stringify(req.url).slice(0, 160)})`;
     return send(res, 404, `No encontrado${detail}`, { 'Content-Type': 'text/plain; charset=utf-8' });
+  }
+
+  // Portada con datos del panel: foto para compartir (WhatsApp, Facebook) y
+  // datos estructurados para Google (nota, fotos, redes). Todo lo demás es fijo.
+  let indexCache = null;
+  async function indexPage(webRoot) {
+    indexCache ??= await readFile(join(webRoot, 'index.html'), 'utf8');
+    let page = indexCache;
+    try {
+      const s = store.getSettings() || {};
+      const b = s.business || {};
+      const abs = (u) => (/^https:\/\//.test(u) ? u : `${cfg.baseUrl}${u}`);
+      const photos = (s.housePhotos || []).filter((p) => /^\/uploads\//.test(p.url)).map((p) => abs(p.url));
+      const attr = (v) => String(v).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      if (photos[0]) page = page.replace(/(<meta property="og:image" content=")[^"]*(")/, `$1${attr(photos[0])}$2`).replace(/(<meta name="twitter:image" content=")[^"]*(")/, `$1${attr(photos[0])}$2`);
+      page = page.replace(/(<script type="application\/ld\+json">)([\s\S]*?)(<\/script>)/, (m, open, body, close) => {
+        const ld = JSON.parse(body);
+        if (photos.length) ld.image = [...photos.slice(0, 5), ld.logo];
+        if (b.googleRating && b.googleReviews) ld.aggregateRating = { '@type': 'AggregateRating', ratingValue: b.googleRating, reviewCount: b.googleReviews, bestRating: 5 };
+        const same = [b.mapsUrl, b.instagram, b.facebook].filter((u) => /^https:\/\//.test(u || ''));
+        if (same.length) ld.sameAs = same;
+        if (/^https:\/\//.test(b.mapsUrl || '')) ld.hasMap = b.mapsUrl;
+        return open + JSON.stringify(ld, null, 1).replace(/</g, '\\u003c') + close;
+      });
+    } catch (e) { console.error('portada', e.message); }
+    return page;
   }
 
   function setupPage() {

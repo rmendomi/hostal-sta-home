@@ -35,7 +35,7 @@ export function go(r, { replace = false } = {}) {
   } catch { /* marco sin historial */ }
   render();
 }
-window.addEventListener('hashchange', () => { const h = currentHash(); if (h !== route) { route = h; render(); } });
+window.addEventListener('hashchange', () => { const h = currentHash(); if (h !== route) { route = h; if (S.info) render(); } });
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="#/"]');
   if (!a || e.metaKey || e.ctrlKey) return;
@@ -53,6 +53,7 @@ document.addEventListener('click', (e) => {
 function cleanup() { S.cleanup.forEach((f) => f()); S.cleanup = []; closeSheet(); closePops(); }
 
 async function render() {
+  if (!S.info) return; // aún cargando: boot() llama a render() cuando llegan los datos
   cleanup();
   const [head, ...rest] = route.split('/');
   document.body.dataset.view = head || 'inicio';
@@ -95,7 +96,7 @@ function siteHeader() {
   return html`${demo ? html`<div class="demo-bar" role="note">${icon('info')}<span><b>Versión de demostración.</b> Pagos simulados, tarifas estimadas y reservas de ejemplo. Nada se cobra.</span><a href="#/panel">Ver panel</a></div>` : ''}
   <header class="site-head">
     <div class="wrap head-row">
-      <a class="brand" href="#/inicio" aria-label="${S.info.business.name}, inicio">${logoMark()}<span class="brand-name">Santa Elena de Maipo<small>Home</small></span></a>
+      <a class="brand" href="#/inicio" aria-label="${S.info?.business?.name || 'Santa Elena de Maipo Home'}, inicio">${logoMark()}<span class="brand-name">Santa Elena de Maipo<small>Home</small></span></a>
       <nav class="site-nav" aria-label="Principal">
         <a href="#/inicio#habitaciones">Habitaciones</a>
         <a href="#/inicio#ubicacion">Ubicación</a>
@@ -112,12 +113,32 @@ function siteFooter() {
   return html`<footer class="site-foot">
     <div class="wrap foot-grid">
       <div class="foot-brand">${logoMark()}<p class="brand-name">Santa Elena de Maipo<small>Home</small></p><p>${b.address}</p></div>
-      <div><h2 class="foot-h">Contacto</h2><p>Teléfono y WhatsApp<br><span class="mono sel">${b.phone}</span></p>${b.email ? html`<p>${b.email}</p>` : ''}<p>Recepción abierta las 24 horas</p></div>
+      <div><h2 class="foot-h">Contacto</h2><p>Teléfono y WhatsApp<br><a class="mono" href="${telHref(b.phone)}">${b.phone}</a></p><p><a href="${waHref(b)}" target="_blank" rel="noopener">Escribir por WhatsApp</a></p>${socialLinks(b)}${b.email ? html`<p>${b.email}</p>` : ''}<p>Recepción abierta las 24 horas</p></div>
       <div><h2 class="foot-h">Tu reserva</h2><p><a href="#/mi-reserva">Ver, cambiar o cancelar</a></p><p><a href="#/inicio#condiciones">Condiciones y políticas</a></p></div>
       <div><h2 class="foot-h">Administración</h2><p><a href="#/panel">Panel del hostal</a></p></div>
     </div>
     <p class="wrap foot-small">Pagos procesados por ${S.info.payment?.providerName || 'Webpay'}: este sitio nunca ve ni guarda los datos de tu tarjeta. Tus datos se usan solo para gestionar tu reserva.</p>
-  </footer>`.toString();
+  </footer>
+  ${b.whatsapp ? html`<a class="wa-float" href="${waHref(b)}" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp">${icon('chat')}<span>WhatsApp</span></a>` : ''}`.toString();
+}
+
+// Contacto pulsable: tel: con el número en formato internacional y WhatsApp con un saludo listo.
+function telHref(phone) { return `tel:+${String(phone || '').replace(/\D/g, '')}`; }
+function waHref(b, text = `Hola, quiero consultar disponibilidad en ${b.name || 'el hostal'}.`) {
+  return `https://wa.me/${String(b.whatsapp || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+}
+function directionsHref(b) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b.address || '')}`;
+}
+function socialLinks(b) {
+  const links = [['Instagram', b.instagram], ['Facebook', b.facebook]].filter(([, u]) => /^https:\/\//.test(u || ''));
+  return links.length ? html`<p>${links.map(([n, u], i) => html`${i ? ' · ' : ''}<a href="${u}" target="_blank" rel="noopener">${n}</a>`)}</p>` : '';
+}
+
+// Foto con versión liviana para listas (thumb) y grande para el detalle.
+function photoImg(p, alt, { sizes = '(max-width: 760px) 100vw, 50vw', eager = false } = {}) {
+  const srcset = p.thumb ? `${p.thumb} 800w, ${p.url} 1600w` : '';
+  return html`<img src="${p.thumb || p.url}" ${srcset ? raw(`srcset="${esc(srcset)}" sizes="${esc(sizes)}"`) : ''} alt="${p.alt || alt}" ${eager ? raw('fetchpriority="high"') : raw('loading="lazy"')} decoding="async">`;
 }
 
 function viewMessage(main, title, body) {
@@ -208,7 +229,7 @@ function startSearch(s) {
 // ---------- Portada ----------
 function roomVisual(room, { big = false } = {}) {
   if (room.photos?.length) {
-    return html`<img src="${room.photos[0].url}" alt="${room.photos[0].alt || room.name}" loading="lazy" decoding="async">`;
+    return photoImg(room.photos[0], room.name, { sizes: big ? '(max-width: 760px) 100vw, 600px' : '(max-width: 760px) 100vw, 400px' });
   }
   return html`<div class="plan-bg">${floorPlan(room, { compact: !big })}</div>`;
 }
@@ -227,20 +248,30 @@ function viewHome(main) {
   const s = defaultSearch();
   const b = S.info.business;
   const rooms = S.info.rooms;
+  const house = S.info.housePhotos || [];
   const minRate = Math.min(...rooms.map((r) => r.baseRate));
   main.innerHTML = html`
   <section class="hero" aria-labelledby="hero-h">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow">Hostal en Temuco · Región de la Araucanía</p>
-        <h1 class="display" id="hero-h">Una casa abrigada para conocer <em>el sur.</em></h1>
+        <h1 id="hero-h"><span class="eyebrow">Hostal en Temuco · Región de la Araucanía</span><span class="display">Una casa abrigada para conocer <em>el sur.</em></span></h1>
         <p class="lede">Cuatro habitaciones y una cabaña con desayuno incluido, calefacción, recepción las 24 horas y estacionamiento. Reservas directo con nosotros y ves cada peso antes de pagar.</p>
-        <a class="rating" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('star')}<strong>${String(b.googleRating).replace('.', ',')}</strong> · ${b.googleReviews} opiniones en Google</a>
+        <div class="hero-links">
+          <a class="rating" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('star')}<strong>${String(b.googleRating).replace('.', ',')}</strong> · ${b.googleReviews} opiniones en Google</a>
+          ${b.whatsapp ? html`<a class="rating" href="${waHref(b)}" target="_blank" rel="noopener">${icon('chat')}Consultar por WhatsApp</a>` : ''}
+        </div>
       </div>
-      <figure class="hero-logo"><img src="/img/logo.jpg" width="960" height="720" alt="Santa Elena de Maipo Home: la casa de madera con su arco de entrada, rodeada de araucarias y con la cordillera detrás" fetchpriority="high"></figure>
+      ${house[0] ? html`<figure class="hero-photo">${photoImg(house[0], 'Santa Elena de Maipo Home', { sizes: '(max-width: 900px) 100vw, 46vw', eager: true })}</figure>`
+        : html`<figure class="hero-logo"><img src="/img/logo.jpg" width="960" height="720" alt="Santa Elena de Maipo Home: la casa de madera con su arco de entrada, rodeada de araucarias y con la cordillera detrás" fetchpriority="high"></figure>`}
     </div>
   </section>
-  <section class="wrap search-dock" id="buscar" aria-label="Buscar disponibilidad">${searchBar(s)}</section>
+  <section class="wrap search-dock" id="buscar" aria-label="Buscar disponibilidad">${searchBar(s)}
+    <ul class="trust">
+      <li>${icon('house')}Reservas directo con el hostal</li>
+      <li>${icon('receipt')}Precio final con IVA incluido</li>
+      <li>${icon('lock')}Pago seguro con ${S.info.payment?.providerName || 'Webpay'}</li>
+    </ul>
+  </section>
 
   <section class="wrap section" id="habitaciones" aria-labelledby="hab-h">
     <div class="section-head">
@@ -269,6 +300,7 @@ function viewHome(main) {
       ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En todas las habitaciones y la cabaña.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
         .map(([i, t, d]) => html`<li>${icon(i)}<div><strong>${t}</strong><span>${d}</span></div></li>`)}
     </ul>
+    ${house.length > 1 ? html`<div class="house-photos">${house.slice(1, 7).map((p, i) => html`<button type="button" class="hp" data-house="${i + 1}" aria-label="Ampliar foto: ${p.alt || 'la casa'}">${photoImg(p, 'La casa', { sizes: '(max-width: 760px) 50vw, 33vw' })}</button>`)}</div>` : ''}
   </section>
 
   <section class="wrap section loc" id="ubicacion" aria-labelledby="ubi-h">
@@ -276,7 +308,7 @@ function viewHome(main) {
       <p class="eyebrow">Ubicación</p>
       <h2 class="h2" id="ubi-h">San Lucas 02125, Temuco</h2>
       <p>Villa Santa Elena de Maipo, sector poniente, cerca del camino Temuco–Labranza. A 3,6 km del Estadio Germán Becker y a 9,3 km del Cerro Ñielol.</p>
-      <div class="row"><a class="btn btn-soft" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('pin')} Abrir en Google Maps</a></div>
+      <div class="row"><a class="btn btn-soft" href="${directionsHref(b)}" target="_blank" rel="noopener">${icon('pin')} Cómo llegar</a>${b.phone ? html`<a class="btn btn-ghost" href="${telHref(b.phone)}">${icon('phone')} Llamar</a>` : ''}</div>
       <p class="muted small">Distancias según la ficha pública del hostal.</p>
     </div>
     <div class="reviews">
@@ -290,16 +322,66 @@ function viewHome(main) {
     <div class="section-head"><h2 class="h2" id="cond-h">Antes de reservar</h2></div>
     <dl class="policies">
       <div><dt>Llegada y salida</dt><dd>Llegada desde las ${b.checkinFrom}. Salida hasta las ${b.checkoutUntil}. Recepción abierta las 24 horas.</dd></div>
-      <div><dt>Pago</dt><dd>${S.info.deposit.mode === 'percent' ? `Al reservar pagas un anticipo del ${S.info.deposit.percent} % con Webpay. El saldo se paga al llegar.` : 'Según se indica al reservar.'}${S.info.deposit.fullIfWithinDays != null ? ` Si la llegada es en ${plural(S.info.deposit.fullIfWithinDays, 'día', 'días')} o menos, se paga el total.` : ''}</dd></div>
+      <div><dt>Pago</dt><dd>${payText()}</dd></div>
       <div><dt>Cancelación</dt><dd>Gratis hasta ${plural(S.info.cancellation.freeUntilDays, 'día', 'días')} antes de la llegada: te devolvemos todo lo pagado. Después, se retiene el anticipo.</dd></div>
       <div><dt>Cambios de fecha</dt><dd>En línea hasta ${plural(S.info.modification?.freeUntilDays ?? 0, 'día', 'días')} antes, si hay disponibilidad. Si el nuevo total es distinto, la diferencia se ajusta en el saldo.</dd></div>
       <div class="pol-wide"><dt>Reglas de la casa</dt><dd><ul class="rules">${S.info.houseRules.slice(1).map((r) => html`<li>${r}</li>`)}</ul></dd></div>
     </dl>
+  </section>
+
+  <section class="wrap section" id="preguntas" aria-labelledby="faq-h">
+    <div class="section-head"><h2 class="h2" id="faq-h">Preguntas frecuentes</h2></div>
+    <div class="faq">${faq(b).map(([q, a]) => html`<details><summary>${q}</summary><p>${a}</p></details>`)}</div>
   </section>`;
 
   bindSearchBar(main, s, startSearch);
-  main.addEventListener('click', (e) => { const r = e.target.closest('[data-room]'); if (r) openRoom(r.dataset.room); });
+  main.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-room]');
+    if (r) return openRoom(r.dataset.room);
+    const h = e.target.closest('[data-house]');
+    if (h) lightbox(house, +h.dataset.house, 'La casa');
+  });
 
+}
+
+function payText() {
+  const d = S.info.deposit;
+  return `${d.mode === 'percent' ? `Al reservar pagas un anticipo del ${d.percent} % con ${S.info.payment?.providerName || 'Webpay'}. El saldo se paga al llegar.` : 'Según se indica al reservar.'}${d.fullIfWithinDays != null ? ` Si la llegada es en ${plural(d.fullIfWithinDays, 'día', 'días')} o menos, se paga el total.` : ''}`;
+}
+
+// Preguntas frecuentes armadas con los datos del panel, para que no queden desactualizadas.
+function faq(b) {
+  const pets = (S.info.houseRules || []).find((r) => /mascota/i.test(r));
+  return [
+    ['¿Cómo llego?', `Estamos en ${b.address}, en el sector poniente de Temuco, cerca del camino Temuco–Labranza. El botón "Cómo llegar" abre Google Maps con la ruta hasta la puerta.`],
+    ['¿A qué hora puedo llegar y hasta qué hora me puedo quedar?', `La llegada es desde las ${b.checkinFrom} y la salida hasta las ${b.checkoutUntil}. La recepción está abierta las 24 horas, así que puedes llegar tarde sin problema.`],
+    ['¿Tienen estacionamiento?', 'Sí, dentro de la propiedad.'],
+    ['¿El desayuno está incluido?', 'Sí, en todas las habitaciones y en la cabaña. También preparamos almuerzo y cena caseros a pedido, que se pagan en el hostal.'],
+    ['¿Cómo se paga la reserva?', `${payText()} Tu tarjeta la ingresas en la página de ${S.info.payment?.providerName || 'Webpay'}: nosotros nunca vemos sus datos.`],
+    ['¿Puedo cancelar o cambiar las fechas?', `Puedes cancelar gratis hasta ${plural(S.info.cancellation.freeUntilDays, 'día', 'días')} antes de la llegada y te devolvemos todo lo pagado. Las fechas se cambian en línea, desde "Mi reserva", hasta ${plural(S.info.modification?.freeUntilDays ?? 0, 'día', 'días')} antes.`],
+    ['¿Aceptan mascotas?', pets || 'Escríbenos por WhatsApp antes de reservar y lo conversamos.'],
+  ];
+}
+
+// Visor de fotos a pantalla completa: flechas del teclado, deslizar en el celular y Escape para cerrar.
+function lightbox(photos, start, label) {
+  let i = start;
+  const onKey = (e) => { if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); };
+  const sheet = openSheet(html`<div class="lb"><figure class="lb-fig"></figure>
+    ${photos.length > 1 ? html`<div class="lb-nav"><button type="button" class="icon-btn" data-lb="-1" aria-label="Foto anterior">${icon('left')}</button><span class="lb-count" aria-live="polite"></span><button type="button" class="icon-btn" data-lb="1" aria-label="Foto siguiente">${icon('right')}</button></div>` : ''}</div>`.toString(), { label, wide: true, onClose: () => document.removeEventListener('keydown', onKey) });
+  const draw = () => {
+    const p = photos[i];
+    $('.lb-fig', sheet).innerHTML = html`<img src="${p.url}" alt="${p.alt || `${label}, foto ${i + 1}`}">${p.alt ? html`<figcaption>${p.alt}</figcaption>` : ''}`;
+    const c = $('.lb-count', sheet); if (c) c.textContent = `${i + 1} de ${photos.length}`;
+  };
+  const step = (d) => { i = (i + d + photos.length) % photos.length; draw(); };
+  sheet.addEventListener('click', (e) => { const b = e.target.closest('[data-lb]'); if (b) step(+b.dataset.lb); });
+  document.addEventListener('keydown', onKey);
+  let x0 = null;
+  sheet.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  sheet.addEventListener('touchend', (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1); x0 = null; });
+  draw();
+  return sheet;
 }
 
 // ---------- Detalle de habitación ----------
@@ -308,12 +390,12 @@ function openRoom(id, { fromResults = null } = {}) {
   if (!r) return;
   const photos = r.photos || [];
   const sheet = openSheet(html`<article class="room-detail">
-    <div class="gallery">${photos.length ? html`<div class="gallery-track">${photos.map((p, i) => html`<img src="${p.url}" alt="${p.alt || `${r.name}, foto ${i + 1}`}" loading="lazy">`)}</div>` : html`<div class="plan-bg plan-big">${floorPlan(r)}</div>`}</div>
+    <div class="gallery">${photos.length ? html`<div class="gallery-track" tabindex="0" aria-label="Fotos de ${r.name}">${photos.map((p, i) => photoImg(p, `${r.name}, foto ${i + 1}`, { sizes: '(max-width: 760px) 100vw, 900px', eager: i === 0 }))}</div>${photos.length > 1 ? html`<button type="button" class="icon-btn g-prev" data-gal="-1" aria-label="Foto anterior">${icon('left')}</button><button type="button" class="icon-btn g-next" data-gal="1" aria-label="Foto siguiente">${icon('right')}</button>` : ''}` : html`<div class="plan-bg plan-big">${floorPlan(r)}</div>`}</div>
     <div class="rd-body">
       <h2 class="h2">${r.name}</h2>
       ${roomFacts(r)}
       <p>${r.description}</p>
-      ${!photos.length ? html`<p class="note">${icon('image')} Aún no hay fotos de esta habitación: mostramos un plano referencial con sus medidas y camas.</p>` : ''}
+      ${!photos.length ? html`<p class="note">${icon('image')} Pronto subiremos fotos de esta habitación. Mientras, te mostramos un plano referencial con sus camas.</p>` : html`<details class="plan-more"><summary>Ver plano referencial</summary><div class="plan-bg">${floorPlan(r)}</div></details>`}
       <h3 class="h4">Qué incluye</h3>
       <ul class="amenities">${r.amenities.map((a) => html`<li>${icon(AMENITY_ICON(a))}${a}</li>`)}</ul>
       <h3 class="h4">Condiciones</h3>
@@ -326,6 +408,12 @@ function openRoom(id, { fromResults = null } = {}) {
       <div class="rd-cta">${fromResults ? html`<button class="btn btn-primary" data-pick="${r.id}">${fromResults}</button>` : html`<button class="btn btn-primary" data-go-search>Ver disponibilidad</button>`}</div>
     </div>
   </article>`.toString(), { label: r.name, wide: true });
+  sheet.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-gal]');
+    if (!g) return;
+    const t = $('.gallery-track', sheet);
+    t.scrollBy({ left: +g.dataset.gal * t.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
   $('[data-go-search]', sheet)?.addEventListener('click', () => { closeSheet(); go('inicio'); requestAnimationFrame(() => $('#buscar')?.scrollIntoView({ block: 'center' })); });
   return sheet;
 }

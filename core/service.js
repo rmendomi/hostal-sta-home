@@ -97,6 +97,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
       rooms: rooms.map(publicRoom),
       extras: charges.filter((c) => c.active !== false).map(({ id, name, description, unit, amount, mandatory, status }) => ({ id, name, description, unit, amount, mandatory, status })),
       houseRules: s.houseRules || [],
+      housePhotos: s.housePhotos || [],
     };
   }
 
@@ -470,6 +471,15 @@ export function createService({ store, now = () => new Date(), random = Math.ran
     settings: () => settings(),
     saveSettings(patch) {
       const cur = settings();
+      if (patch.housePhotos !== undefined) patch = { ...patch, housePhotos: cleanPhotos(patch.housePhotos) };
+      if (patch.business) {
+        const b = { ...patch.business };
+        for (const k of ['instagram', 'facebook']) if (k in b) b[k] = httpsUrl(b[k]);
+        if ('mapsUrl' in b) { b.mapsUrl = httpsUrl(b.mapsUrl); if (!b.mapsUrl) delete b.mapsUrl; } // vacío o inválido: se mantiene el anterior
+        if ('googleRating' in b) b.googleRating = Math.min(5, Math.max(0, Math.round(Number(String(b.googleRating).replace(',', '.')) * 10) / 10 || 0));
+        if ('googleReviews' in b) b.googleReviews = int(b.googleReviews || 0, { min: 0, max: 100000, name: 'Opiniones en Google' });
+        patch = { ...patch, business: b };
+      }
       const next = deepMerge(cur, patch);
       store.saveSettings(next);
       return next;
@@ -679,6 +689,10 @@ const int = (v, { min = 0, max = 1e9, name }) => {
   return n;
 };
 const str = (v, max = 200) => String(v ?? '').trim().slice(0, max);
+// Fotos: url grande y, si existe, una versión liviana (thumb) para listas.
+// Las url largas son fotos de la demo, guardadas como data: en el navegador.
+const cleanPhotos = (list) => (Array.isArray(list) ? list : []).slice(0, 20).map((p) => ({ url: str(p?.url, 3_000_000), alt: str(p?.alt, 160), ...(p?.thumb ? { thumb: str(p.thumb, 3_000_000) } : {}) })).filter((p) => p.url);
+const httpsUrl = (v) => (/^https:\/\/[^\s"'<>]+$/.test(str(v, 500)) ? str(v, 500) : '');
 
 const validators = {
   rooms(r) {
@@ -701,7 +715,7 @@ const validators = {
       extraGuestFee: int(r.extraGuestFee || 0, { min: 0, max: 1000000, name: 'Cargo por persona extra' }),
       minNights: int(r.minNights || 1, { min: 1, max: 30, name: 'Mínimo de noches' }),
       amenities: (Array.isArray(r.amenities) ? r.amenities : String(r.amenities || '').split(',')).map((a) => str(a, 60)).filter(Boolean).slice(0, 30),
-      photos: (r.photos || []).slice(0, 20).map((p) => ({ url: str(p.url, 3_000_000), alt: str(p.alt, 160) })),
+      photos: cleanPhotos(r.photos),
       active: r.active !== false,
       sort: int(r.sort || 0, { min: 0, max: 999, name: 'Orden' }),
       dataStatus: str(r.dataStatus, 40),

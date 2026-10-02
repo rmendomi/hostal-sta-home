@@ -203,3 +203,28 @@ test('sin cron: una visita envía los correos pendientes y hace el respaldo del 
     assert.equal((await s.app.listBackups()).length, 1);
   } finally { globalThis.fetch = realFetch; s.done(); }
 });
+
+test('portada: foto de la casa para compartir y nota de Google en los datos estructurados', async () => {
+  const s = await start({ INICIAR_BASE: '1' });
+  try {
+    const svc = s.app.svc;
+    svc.admin.saveSettings({
+      housePhotos: [{ url: '/uploads/casa.webp', thumb: '/uploads/casa-800.webp', alt: 'Fachada' }, { url: '' }],
+      business: { mapsUrl: 'javascript:alert(1)', instagram: 'http://inseguro', facebook: 'https://www.facebook.com/hostal', googleRating: '4,8', googleReviews: '140' },
+    });
+    const st = s.app.store.getSettings();
+    assert.equal(st.housePhotos.length, 1, 'descarta fotos sin url');
+    assert.match(st.business.mapsUrl, /^https:\/\/www\.google\.com\/maps/, 'enlace inválido no reemplaza al anterior');
+    assert.equal(st.business.instagram, '');
+    assert.equal(st.business.googleRating, 4.8);
+    const page = await (await fetch(s.base + '/')).text();
+    assert.match(page, /<meta property="og:image" content="http:\/\/127\.0\.0\.1:\d+\/uploads\/casa\.webp">/);
+    const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(page)[1]);
+    assert.equal(ld.aggregateRating.ratingValue, 4.8);
+    assert.equal(ld.aggregateRating.reviewCount, 140);
+    assert.deepEqual(ld.sameAs.slice(-1), ['https://www.facebook.com/hostal']);
+    assert.ok(ld.image[0].endsWith('/uploads/casa.webp'));
+    const info = await (await post(s.base, '/api/public/info', {})).json();
+    assert.equal(info.housePhotos[0].thumb, '/uploads/casa-800.webp');
+  } finally { s.done(); }
+});

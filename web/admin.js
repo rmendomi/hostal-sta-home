@@ -408,16 +408,53 @@ async function viewRooms(main) {
   $('#add-room', main).addEventListener('click', () => roomSheet({ name: '', beds: '1 cama doble', bathroom: 'privado', maxGuests: 2, baseOccupancy: 2, baseRate: 40000, extraGuestFee: 0, minNights: 1, amenities: ['Wifi gratis', 'Baño privado'], photos: [], active: true, sort: rooms.length + 1 }, () => viewRooms(main)));
 }
 
+// Achica la foto en el navegador antes de subirla. Al redibujarla en un canvas
+// se pierden los metadatos (ubicación GPS incluida) y queda bien girada.
 async function resizeImage(file, max = 1600) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas');
-    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.82);
+    const webp = c.toDataURL('image/webp', 0.78);
+    return webp.startsWith('data:image/webp') ? webp : c.toDataURL('image/jpeg', 0.8); // navegadores sin WebP
   } finally { URL.revokeObjectURL(url); }
+}
+
+// Sube una foto en dos tamaños: 1600 px para verla en grande y 800 px para las listas.
+async function uploadPhoto(f) {
+  const [big, small] = [await resizeImage(f, 1600), await resizeImage(f, 800)];
+  const up = await A('upload', { dataUrl: big, name: f.name });
+  const th = await A('upload', { dataUrl: small, name: f.name });
+  return { url: up.url, thumb: th.url, alt: '' };
+}
+
+// Editor de fotos reutilizable: ordenar, describir, quitar y subir.
+function photoEditor(root, photos, { empty }) {
+  const box = $('[data-photos]', root);
+  const draw = () => {
+    box.innerHTML = photos.length ? html`${photos.map((p, i) => html`<figure class="ph"><img src="${p.thumb || p.url}" alt=""><input aria-label="Descripción de la foto ${i + 1}" data-alt="${i}" value="${p.alt || ''}" placeholder="Describe la foto"><div class="ph-ctl"><button type="button" class="icon-btn sm" data-mv="${i}" data-dir="-1" aria-label="Mover antes" ${i === 0 ? 'disabled' : ''}>${icon('left')}</button><button type="button" class="icon-btn sm" data-mv="${i}" data-dir="1" aria-label="Mover después" ${i === photos.length - 1 ? 'disabled' : ''}>${icon('right')}</button><button type="button" class="icon-btn sm" data-rm="${i}" aria-label="Quitar foto">${icon('trash')}</button></div></figure>`)}` : html`<p class="muted small">${empty}</p>`;
+  };
+  draw();
+  box.addEventListener('click', (e) => {
+    const mv = e.target.closest('[data-mv]');
+    if (mv) { const i = +mv.dataset.mv; const j = i + +mv.dataset.dir; [photos[i], photos[j]] = [photos[j], photos[i]]; draw(); }
+    const rm = e.target.closest('[data-rm]');
+    if (rm) { photos.splice(+rm.dataset.rm, 1); draw(); }
+  });
+  box.addEventListener('input', (e) => { if (e.target.dataset.alt != null) photos[+e.target.dataset.alt].alt = e.target.value; });
+  $('[data-upload]', root).addEventListener('change', async (e) => {
+    const label = e.target.closest('label');
+    label?.classList.add('is-busy');
+    for (const f of e.target.files) {
+      try { photos.push(await uploadPhoto(f)); draw(); }
+      catch (x) { toast(x.message || 'No se pudo subir la foto', 'bad'); }
+    }
+    label?.classList.remove('is-busy');
+    e.target.value = '';
+  });
 }
 
 function roomSheet(r, after) {
@@ -443,29 +480,12 @@ function roomSheet(r, after) {
         <label class="check field-wide"><input type="checkbox" name="confirmed" ${r.dataStatus !== 'por_confirmar' ? 'checked' : ''}><span>Revisé estos datos y son correctos</span></label>
       </div>
       <h3 class="h5">Fotos</h3>
-      <div class="photos" id="ph"></div>
-      <label class="btn btn-soft btn-sm upload">${icon('image')} Subir fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple id="r-up"></label>
+      <div class="photos" data-photos></div>
+      <label class="btn btn-soft btn-sm upload">${icon('image')} Subir fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-upload></label>
       <p class="hint">Se achican automáticamente antes de subir. La primera foto es la portada. Describe cada foto para lectores de pantalla.</p>
       <div class="row-end">${r.id ? html`<button type="button" class="btn btn-ghost danger-text" id="r-del">Eliminar</button>` : ''}<button type="button" class="btn btn-ghost" data-close>Volver</button><button class="btn btn-primary">Guardar</button></div>
     </form>`.toString(), { label: 'Habitación', wide: true });
-  const drawPhotos = () => {
-    $('#ph', sheet).innerHTML = photos.length ? html`${photos.map((p, i) => html`<figure class="ph"><img src="${p.url}" alt=""><input aria-label="Descripción de la foto ${i + 1}" data-alt="${i}" value="${p.alt || ''}" placeholder="Describe la foto"><div class="ph-ctl"><button type="button" class="icon-btn sm" data-mv="${i}" data-dir="-1" aria-label="Mover antes" ${i === 0 ? 'disabled' : ''}>${icon('left')}</button><button type="button" class="icon-btn sm" data-mv="${i}" data-dir="1" aria-label="Mover después" ${i === photos.length - 1 ? 'disabled' : ''}>${icon('right')}</button><button type="button" class="icon-btn sm" data-rm="${i}" aria-label="Quitar foto">${icon('trash')}</button></div></figure>`)}` : html`<p class="muted small">Sin fotos: el sitio muestra el plano referencial.</p>`;
-  };
-  drawPhotos();
-  sheet.addEventListener('click', (e) => {
-    const mv = e.target.closest('[data-mv]');
-    if (mv) { const i = +mv.dataset.mv; const j = i + +mv.dataset.dir; [photos[i], photos[j]] = [photos[j], photos[i]]; drawPhotos(); }
-    const rm = e.target.closest('[data-rm]');
-    if (rm) { photos.splice(+rm.dataset.rm, 1); drawPhotos(); }
-  });
-  sheet.addEventListener('input', (e) => { if (e.target.dataset.alt != null) photos[+e.target.dataset.alt].alt = e.target.value; });
-  $('#r-up', sheet).addEventListener('change', async (e) => {
-    for (const f of e.target.files) {
-      try { const dataUrl = await resizeImage(f); const up = await A('upload', { dataUrl, name: f.name }); photos.push({ url: up.url, alt: '' }); drawPhotos(); }
-      catch (x) { toast(x.message || 'No se pudo subir la foto', 'bad'); }
-    }
-    e.target.value = '';
-  });
+  photoEditor(sheet, photos, { empty: 'Sin fotos: el sitio muestra el plano referencial.' });
   $('#r-del', sheet)?.addEventListener('click', async () => {
     try { await A('remove', { kind: 'rooms', id: r.id }); closeSheet(); toast('Habitación eliminada'); after(); } catch (x) { toast(x.message, 'bad'); }
   });
@@ -723,8 +743,20 @@ async function viewSettings(main) {
         <div class="field field-wide"><label for="b-addr">Dirección</label><input id="b-addr" name="address" value="${b.address}"></div>
         <div class="field"><label for="b-in">Llegada desde</label><input id="b-in" name="checkinFrom" type="time" value="${b.checkinFrom}"></div>
         <div class="field"><label for="b-out">Salida hasta</label><input id="b-out" name="checkoutUntil" type="time" value="${b.checkoutUntil}"></div>
+        <div class="field field-wide"><label for="b-maps">Enlace a la ficha del hostal en Google</label><input id="b-maps" name="mapsUrl" type="url" value="${b.mapsUrl || ''}" placeholder="https://maps.app.goo.gl/..."><p class="hint">En Google Maps, abre la ficha del hostal, toca "Compartir" y pega aquí el enlace. Lo usan "Leer opiniones" y la nota en Google.</p></div>
+        <div class="field"><label for="b-rate">Nota en Google</label><input id="b-rate" name="googleRating" inputmode="decimal" value="${String(b.googleRating ?? '').replace('.', ',')}"></div>
+        <div class="field"><label for="b-revs">Cantidad de opiniones</label><input id="b-revs" name="googleReviews" inputmode="numeric" value="${b.googleReviews ?? ''}"></div>
+        <div class="field"><label for="b-ig">Instagram (opcional)</label><input id="b-ig" name="instagram" type="url" value="${b.instagram || ''}" placeholder="https://www.instagram.com/..."></div>
+        <div class="field"><label for="b-fb">Facebook (opcional)</label><input id="b-fb" name="facebook" type="url" value="${b.facebook || ''}" placeholder="https://www.facebook.com/..."></div>
         <div class="field field-wide"><label for="b-rules">Reglas de la casa (una por línea)</label><textarea id="b-rules" name="rules" rows="5">${(s.houseRules || []).join('\n')}</textarea></div>
       </div><div class="row-end"><button class="btn btn-primary">Guardar</button></div></form>
+    </section>
+
+    <section class="panel" id="house">
+      <div class="panel-head"><h2 class="h4">Fotos de la casa</h2></div>
+      <p class="muted small">Fachada, living, comedor, desayuno, jardín. La primera es la foto grande de la portada (mejor si es horizontal); las siguientes, hasta 6, se muestran en la sección "La casa".</p>
+      <div class="photos" data-photos></div>
+      <div class="row-end"><label class="btn btn-soft btn-sm upload">${icon('image')} Subir fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-upload></label><button class="btn btn-primary btn-sm" id="house-save" type="button">Guardar fotos</button></div>
     </section>
 
     <section class="panel">
@@ -752,6 +784,11 @@ async function viewSettings(main) {
     const rules = String(f.rules).split('\n').map((x) => x.trim()).filter(Boolean);
     delete f.rules;
     try { await A('saveSettings', { patch: { business: f, houseRules: rules } }); ctx.info = await ctx.api.pub('info'); toast('Datos guardados'); } catch (x) { toast(x.message, 'bad'); }
+  });
+  const housePhotos = [...(s.housePhotos || [])];
+  photoEditor($('#house', main), housePhotos, { empty: 'Todavía no hay fotos: la portada muestra el logo.' });
+  $('#house-save', main).addEventListener('click', async () => {
+    try { await A('saveSettings', { patch: { housePhotos } }); ctx.info = await ctx.api.pub('info'); toast('Fotos de la casa guardadas'); } catch (x) { toast(x.message, 'bad'); }
   });
   main.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copyText(c.dataset.copy, c); });
   $('#reset', main)?.addEventListener('click', async () => {

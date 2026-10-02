@@ -170,3 +170,4 @@
 .login .brand-name small { color: var(--alerce); }
 .login .lm-arch, .login .lm-base { stroke: var(--terracota); }
 .login .lm-se { fill: var(--ink); }
+.upload.is-busy { opacity: .6; pointer-events: none; }
