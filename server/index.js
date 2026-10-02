@@ -44,6 +44,7 @@ export async function createApp(env = process.env) {
   if (!store.list('rooms').length && env.INICIAR_BASE === '1') seedProduction(store);
   const needsSetup = () => !store.list('rooms').length;
 
+  const startedAt = new Date().toISOString();
   // Sin credenciales de Flow el sitio igual funciona: solo se desactiva el pago en línea.
   let payments = null;
   if (cfg.payments === 'simulado') payments = createSimulatedPayments({ urlFor: (token) => `${cfg.baseUrl}/pago-simulado/${token}` });
@@ -208,7 +209,8 @@ export async function createApp(env = process.env) {
     const path = url.pathname;
     const ip = ipOf(req);
 
-    if (path === '/salud') return json(res, 200, { ok: true, base: needsSetup() ? 'vacia' : 'lista' });
+    // Diagnóstico sin secretos: si el proceso tiene el pago activo y desde cuándo corre (para ver si un Restart surtió efecto).
+    if (path === '/salud') return json(res, 200, { ok: true, base: needsSetup() ? 'vacia' : 'lista', pagos: payments ? (cfg.payments === 'simulado' ? 'simulado' : `flow ${cfg.flowEnv}`) : 'apagado', iniciado: startedAt, pid: process.pid });
 
     if (path.startsWith('/tareas')) {
       const tareaMatch = /^\/tareas\/([a-z]+)\/?$/.exec(path);
