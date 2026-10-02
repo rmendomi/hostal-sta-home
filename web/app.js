@@ -631,8 +631,8 @@ async function viewCheckout(main) {
   };
   await redraw();
 
-  $('.extra input', main).forEach((c) => c.addEventListener('change', () => { if (c.checked) S.extras.add(c.value); else S.extras.delete(c.value); redraw(); }));
-  $('[data-xdays]', main).forEach((box) => {
+  $$('.extra input', main).forEach((c) => c.addEventListener('change', () => { if (c.checked) S.extras.add(c.value); else S.extras.delete(c.value); redraw(); }));
+  $$('[data-xdays]', main).forEach((box) => {
     const st = S.extraDays[box.dataset.xdays];
     box.addEventListener('click', (e) => {
       const b = e.target.closest('[data-day]');
