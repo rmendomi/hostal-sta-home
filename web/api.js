@@ -13,7 +13,12 @@ export async function createApi() {
   const call = async (area, method, args) => {
     let r;
     try {
-      r = await fetch(`/api/${area}/${method}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}), credentials: 'same-origin' });
+      // Las fotos van como binario: el firewall del hosting bloquea el base64 dentro de JSON.
+      const img = area === 'admin' && method === 'upload' && /^data:(image\/[a-z]+);base64,/.exec(args?.dataUrl || '');
+      const req = img
+        ? { headers: { 'Content-Type': img[1], 'X-File-Name': encodeURIComponent(args.name || '') }, body: Uint8Array.from(atob(args.dataUrl.slice(img[0].length)), (c) => c.charCodeAt(0)) }
+        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) };
+      r = await fetch(`/api/${area}/${method}`, { method: 'POST', ...req, credentials: 'same-origin' });
     } catch {
       throw new ApiError('No pudimos conectarnos. Revisa tu conexión e intenta de nuevo.');
     }

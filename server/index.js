@@ -124,7 +124,7 @@ export async function createApp(env = process.env) {
   }
   const json = (res, status, data, headers = {}) => send(res, status, JSON.stringify(data), { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
 
-  async function readBody(req, max = 200_000) {
+  async function readRaw(req, max = 200_000) {
     let size = 0;
     const chunks = [];
     for await (const c of req) {
@@ -132,8 +132,9 @@ export async function createApp(env = process.env) {
       if (size > max) throw new ServiceError('tamano', 'La solicitud es demasiado grande.', 413);
       chunks.push(c);
     }
-    return Buffer.concat(chunks).toString('utf8');
+    return Buffer.concat(chunks);
   }
+  const readBody = async (req, max) => (await readRaw(req, max)).toString('utf8');
   async function readJson(req, max) {
     const t = await readBody(req, max);
     try { return t ? JSON.parse(t) : {}; } catch { throw new ServiceError('json', 'Solicitud inválida.'); }
@@ -291,7 +292,15 @@ export async function createApp(env = process.env) {
             return json(res, 200, { discarded: q.length });
           }
           if (method === 'tareas') return json(res, 200, { enabled: !!tareaKey, runs: store.getSettings().tareas || {} });
-          if (method === 'upload') return json(res, 200, await upload(await readJson(req, 12_000_000)));
+          if (method === 'upload') {
+            // La foto llega como binario (image/*): el firewall del hosting bloqueaba el base64 dentro de JSON.
+            const type = String(req.headers['content-type'] || '').split(';')[0].trim();
+            if (!type.startsWith('image/')) return json(res, 200, await upload(await readJson(req, 12_000_000)));
+            let name = '';
+            try { name = decodeURIComponent(String(req.headers['x-file-name'] || '')); } catch { /* nombre ilegible: se omite */ }
+            const buf = await readRaw(req, 9_000_000);
+            return json(res, 200, await upload({ dataUrl: `data:${type};base64,${buf.toString('base64')}`, name }));
+          }
           if (method === 'changePassword') {
             const b = await readJson(req);
             auth.createAdmin({ email: who.admin.email, password: b.password });
