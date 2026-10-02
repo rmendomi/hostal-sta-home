@@ -456,6 +456,15 @@ async function viewResults(main) {
       $('[data-continue]', bar).disabled = true;
     }
   };
+  // Invitación a quedarse más: el siguiente descuento por estadía que mejora el actual.
+  const stayPromo = () => {
+    const now = Math.max(0, ...res.results.map((r) => r.price?.discount?.pct || 0));
+    const next = (S.info.stayDiscounts || []).filter((d) => d.minNights > res.nights && d.pct > now).sort((a, b) => a.minNights - b.minNights)[0];
+    if (!next) return '';
+    const more = next.minNights - res.nights;
+    const until = addDays(s.checkin, next.minNights);
+    return html`<div class="alert alert-promo">${icon('tag')}<p><strong>Quédate ${plural(more, 'noche', 'noches')} más y te descontamos el ${next.pct} % del alojamiento.</strong> Con ${plural(next.minNights, 'noche', 'noches')} o más se aplica solo, sin códigos.</p><button type="button" class="btn btn-soft btn-sm" data-extend="${until}">Ver hasta el ${human(until, { weekday: true })}</button></div>`;
+  };
   const draw = () => {
     const avail = res.results.filter((r) => r.available);
     $('#res', main).innerHTML = html`
@@ -465,6 +474,7 @@ async function viewResults(main) {
       </div>
       ${res.needsMultipleRooms ? html`<div class="alert">${icon('users')}<p>Son ${s.adults + s.children} personas y cada habitación recibe hasta 3. Elige dos o más habitaciones y reparte a tu grupo.</p></div>` : ''}
       ${!avail.length ? html`<div class="alert">${icon('cal')}<p>Esas noches están tomadas. Prueba otras fechas: en el calendario verás qué días tienen habitaciones libres.</p></div>` : ''}
+      ${avail.length ? stayPromo() : ''}
       <div class="res-list">${res.results.map((r) => resultCard(r, s))}</div>`;
   };
   function resultCard(r, s) {
@@ -507,6 +517,8 @@ async function viewResults(main) {
   main.addEventListener('click', (e) => {
     const t = e.target.closest('[data-toggle]');
     if (t) return toggle(t.dataset.toggle);
+    const x = e.target.closest('[data-extend]');
+    if (x) return startSearch({ ...s, checkout: x.dataset.extend });
     const v = e.target.closest('[data-room]');
     if (v) {
       const r = res.results.find((x) => x.room.id === v.dataset.room);

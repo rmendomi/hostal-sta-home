@@ -82,9 +82,11 @@ export function createService({ store, now = () => new Date(), random = Math.ran
 
   function publicInfo() {
     const s = settings();
-    const { rooms, charges } = catalog();
+    const { rooms, charges, discounts } = catalog();
     return {
       business: s.business,
+      // Descuentos por estadía larga: el sitio los usa para invitar a quedarse más noches.
+      stayDiscounts: discounts.filter((d) => d.active !== false && d.type === 'estadia').map(({ name, pct, minNights }) => ({ name, pct, minNights })),
       currency: s.currency,
       pricesIncludeVat: s.pricesIncludeVat,
       deposit: s.deposit,

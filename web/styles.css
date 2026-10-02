@@ -381,6 +381,9 @@ input:hover, select:hover, textarea:hover { border-color: var(--ink-3); }
 .alert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--r); background: var(--info-bg); color: var(--ink); margin-bottom: 14px; }
 .alert p { margin: 0; }
 .alert .ic { color: var(--info); margin-top: 2px; }
+.alert-promo { align-items: center; flex-wrap: wrap; background: var(--alerce-soft); border: 1px solid color-mix(in srgb, var(--alerce) 35%, transparent); }
+.alert-promo .ic { color: var(--alerce); margin-top: 0; }
+.alert-promo p { flex: 1 1 260px; }
 .alert-bad { background: var(--bad-bg); } .alert-bad .ic { color: var(--bad); }
 .note { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--ink-2); background: var(--surface-2); padding: 10px 12px; border-radius: var(--r-sm); }
 .loading { color: var(--ink-3); }
