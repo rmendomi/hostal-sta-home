@@ -25,7 +25,7 @@ export async function createApp(env = process.env) {
     baseUrl: (env.BASE_URL || `http://localhost:${env.PORT || 3000}`).replace(/\/$/, ''),
     dataDir: env.DATA_DIR || join(ROOT, 'data'),
     payments: env.PAYMENTS === 'simulado' ? 'simulado' : 'flow', // 'flow' | 'simulado'
-    flowEnv: env.FLOW_ENV || 'sandbox', // 'sandbox' (pruebas) | 'produccion'
+    flowEnv: (env.FLOW_ENV || 'sandbox').trim().toLowerCase(), // 'sandbox' (pruebas) | 'produccion'
   };
   await mkdir(join(cfg.dataDir, 'uploads'), { recursive: true });
 
@@ -47,7 +47,7 @@ export async function createApp(env = process.env) {
   // Sin credenciales de Flow el sitio igual funciona: solo se desactiva el pago en línea.
   let payments = null;
   if (cfg.payments === 'simulado') payments = createSimulatedPayments({ urlFor: (token) => `${cfg.baseUrl}/pago-simulado/${token}` });
-  else if (env.FLOW_API_KEY && env.FLOW_SECRET_KEY) payments = createFlow({ environment: cfg.flowEnv, apiKey: env.FLOW_API_KEY, secretKey: env.FLOW_SECRET_KEY });
+  else if (env.FLOW_API_KEY?.trim() && env.FLOW_SECRET_KEY?.trim()) payments = createFlow({ environment: cfg.flowEnv, apiKey: env.FLOW_API_KEY.trim(), secretKey: env.FLOW_SECRET_KEY.trim() });
   else console.warn('Pago en línea desactivado: faltan FLOW_API_KEY y FLOW_SECRET_KEY.');
   const s0 = store.getSettings();
   if (s0.payment) {
