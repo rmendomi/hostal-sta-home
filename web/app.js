@@ -114,7 +114,7 @@ function siteFooter() {
   return html`<footer class="site-foot">
     <div class="wrap foot-grid">
       <div class="foot-brand">${logoMark()}<p class="brand-name">Santa Elena de Maipo<small>Home</small></p><p>${b.address}</p></div>
-      <div><h2 class="foot-h">Contacto</h2><p>Teléfono y WhatsApp<br><a class="mono" href="${telHref(b.phone)}">${b.phone}</a></p><p><a href="${waHref(b)}" target="_blank" rel="noopener">Escribir por WhatsApp</a></p>${socialLinks(b)}${b.email ? html`<p>${b.email}</p>` : ''}<p>Recepción abierta las 24 horas</p></div>
+      <div><h2 class="foot-h">Contacto</h2><p>Teléfono y WhatsApp<br><a class="mono" href="${telHref(b.phone)}">${b.phone}</a></p><p><a href="${waHref(b)}" target="_blank" rel="noopener">Escribir por WhatsApp</a></p>${socialLinks(b)}${b.email ? html`<p>${b.email}</p>` : ''}<p>Recepción abierta las 24 horas</p>${b.whatsapp ? html`<p><a href="${waHref(b, WA_EMPRESA)}" target="_blank" rel="noopener">Empresas y factura</a></p>` : ''}</div>
       <div><h2 class="foot-h">Tu reserva</h2><p><a href="#/mi-reserva">Ver, cambiar o cancelar</a></p><p><a href="#/inicio#condiciones">Condiciones y políticas</a></p></div>
       <div><h2 class="foot-h">Administración</h2><p><a href="#/panel">Panel del hostal</a></p></div>
     </div>
@@ -128,6 +128,9 @@ function telHref(phone) { return `tel:+${String(phone || '').replace(/\D/g, '')}
 function waHref(b, text = `Hola, quiero consultar disponibilidad en ${b.name || 'el hostal'}.`) {
   return `https://wa.me/${String(b.whatsapp || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
 }
+// Mensajes de WhatsApp para empresas y factura.
+const WA_EMPRESA = 'Hola, escribo por una empresa y quiero consultar tarifas especiales para alojar a nuestro equipo.';
+const WA_FACTURA = 'Hola, quiero reservar y necesito factura. ¿Me indican qué datos debo enviar?';
 function directionsHref(b) {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b.address || '')}`;
 }
@@ -318,6 +321,24 @@ function viewHome(main) {
     </div>
   </section>
 
+  ${b.whatsapp ? html`<section class="wrap section-tight" id="empresas" aria-labelledby="biz-h">
+    <div class="biz">
+      <div class="biz-copy">
+        <p class="eyebrow">Empresas y viajes de trabajo</p>
+        <h2 class="h3" id="biz-h">¿Viajas por trabajo o alojas a un equipo?</h2>
+        <p>Tenemos tarifas especiales para empresas y emitimos factura. Escríbenos por WhatsApp y lo coordinamos directo con el hostal.</p>
+      </div>
+      <ul class="biz-list">
+        <li>${icon('users')}<span><strong>Convenios para empresas</strong>Tarifas especiales para cuadrillas, técnicos y estadías largas.</span></li>
+        <li>${icon('receipt')}<span><strong>Emitimos factura</strong>Pídela antes de pagar y te indicamos qué datos enviar.</span></li>
+      </ul>
+      <div class="biz-cta">
+        <a class="btn btn-primary" href="${waHref(b, WA_EMPRESA)}" target="_blank" rel="noopener">${icon('chat')}Consultar tarifa para empresas</a>
+        <a class="biz-link" href="${waHref(b, WA_FACTURA)}" target="_blank" rel="noopener">Necesito factura</a>
+      </div>
+    </div>
+  </section>` : ''}
+
   <section class="wrap section loc" id="ubicacion" aria-labelledby="ubi-h">
     <div class="loc-card">
       <p class="eyebrow">Ubicación</p>
@@ -378,6 +399,8 @@ function faq(b) {
     ['¿El desayuno está incluido?', 'Sí, en las cuatro habitaciones de la casa. La cabaña no incluye desayuno: tiene cocina propia para que prepares lo tuyo. También preparamos almuerzo y cena caseros a pedido, que se pagan en el hostal.'],
     ['¿Cómo se paga la reserva?', `${payText()} Tu tarjeta la ingresas en la página de ${S.info.payment?.providerName || 'Webpay'}: nosotros nunca vemos sus datos.`],
     ['¿Puedo cancelar o cambiar las fechas?', `Puedes cancelar gratis hasta ${plural(S.info.cancellation.freeUntilDays, 'día', 'días')} antes de la llegada y te devolvemos todo lo pagado. Las fechas se cambian en línea, desde "Mi reserva", hasta ${plural(S.info.modification?.freeUntilDays ?? 0, 'día', 'días')} antes.`],
+    ['¿Emiten factura?', 'Sí. Escríbenos por WhatsApp antes de pagar y te indicamos qué datos de la empresa necesitamos; la reserva se paga igual en línea o en el hostal.'],
+    ['¿Tienen tarifas para empresas?', 'Sí, tenemos tarifas especiales para empresas, equipos de trabajo y estadías largas. Se coordinan directo por WhatsApp, no en la reserva en línea.'],
     ['¿Aceptan mascotas?', pets || 'Escríbenos por WhatsApp antes de reservar y lo conversamos.'],
   ];
 }
@@ -602,6 +625,7 @@ async function viewCheckout(main) {
 
       <form class="co-step" id="guest-form" novalidate aria-labelledby="st2">
         <h2 class="h4" id="st2"><span class="stepn">2</span>Tus datos</h2>
+        ${S.info.business.whatsapp ? html`<div class="alert">${icon('receipt')}<p><strong>¿Necesitas factura o reservas para una empresa?</strong> Escríbenos por WhatsApp antes de pagar: emitimos factura y tenemos tarifas especiales para empresas. <a href="${waHref(S.info.business, WA_FACTURA)}" target="_blank" rel="noopener">Escribir por WhatsApp</a></p></div>` : ''}
         <div class="fields">
           ${field('firstName', 'Nombre', g.firstName, { autocomplete: 'given-name', required: true })}
           ${field('lastName', 'Apellido', g.lastName, { autocomplete: 'family-name', required: true })}
@@ -610,7 +634,7 @@ async function viewCheckout(main) {
           ${field('country', 'País', g.country, { autocomplete: 'country-name' })}
           ${field('docId', 'RUT o pasaporte', g.docId, { hint: 'Agiliza el registro al llegar.' })}
           <div class="field"><label for="f-arrivalTime">Hora estimada de llegada</label><select id="f-arrivalTime" name="arrivalTime">${['', 'Antes de las 15:00', '15:00 – 18:00', '18:00 – 21:00', '21:00 – 00:00', 'Después de medianoche'].map((o) => html`<option value="${o}" ${g.arrivalTime === o ? 'selected' : ''}>${o || 'No lo sé aún'}</option>`)}</select></div>
-          <div class="field field-wide"><label for="f-notes">Comentarios para el hostal</label><textarea id="f-notes" name="notes" rows="3" maxlength="600" placeholder="Por ejemplo: viajo con un bebé, necesito boleta, llego en bus.">${g.notes || ''}</textarea></div>
+          <div class="field field-wide"><label for="f-notes">Comentarios para el hostal</label><textarea id="f-notes" name="notes" rows="3" maxlength="600" placeholder="Por ejemplo: viajo con un bebé, llego en bus.">${g.notes || ''}</textarea></div>
         </div>
       </form>
 
