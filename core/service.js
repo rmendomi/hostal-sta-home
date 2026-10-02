@@ -19,11 +19,17 @@ export class ConflictError extends ServiceError {
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-export function cardTypeFromWebpay(code) {
+// Tipo de tarjeta según el código que informa la pasarela (VD débito, VP prepago).
+// Flow no lo informa: ahí queda null y se muestra el medio de pago.
+export function cardTypeFromCode(code) {
+  if (!code) return null;
   if (code === 'VD') return 'debit';
   if (code === 'VP') return 'prepaid';
   return 'credit';
 }
+
+// Pagos en línea: 'online' desde Flow; 'webpay' en reservas antiguas.
+export const isOnline = (p) => p.method === 'online' || p.method === 'webpay';
 
 export const CARD_LABEL = { debit: 'Débito', credit: 'Crédito', prepaid: 'Prepago' };
 
@@ -290,24 +296,24 @@ export function createService({ store, now = () => new Date(), random = Math.ran
 
   // ---------- Pagos ----------
 
-  async function startPayment(code, { returnUrl }) {
+  async function startPayment(code, { returnUrl, confirmUrl = '' }) {
     sweepExpired();
     const b = requireBooking(code);
     if (b.status !== 'pendiente_pago') throw new ServiceError('estado', b.status === 'expirada' ? 'El tiempo para pagar terminó y las noches se liberaron. Vuelve a buscar disponibilidad.' : 'Esta reserva no tiene un pago pendiente.');
     if (!payments) throw new ServiceError('pagos', 'El pago en línea no está configurado.', 503);
     const s = settings();
     const buyOrder = `${b.code.replace('-', '')}${Date.now().toString(36).slice(-4).toUpperCase()}`.slice(0, 26);
-    const res = await payments.create({ buyOrder, sessionId: b.id, amount: b.depositAmount, returnUrl });
+    const res = await payments.create({ buyOrder, sessionId: b.id, amount: b.depositAmount, returnUrl, confirmUrl, email: b.guest?.email, subject: `Reserva ${b.code} · ${s.business?.name || 'Santa Elena de Maipo Home'}` });
     store.insert('payments', {
-      bookingId: b.id, kind: 'cargo', provider: s.payment?.provider || 'webpay', method: 'webpay',
+      bookingId: b.id, kind: 'cargo', provider: s.payment?.provider || 'flow', method: 'online',
       amount: b.depositAmount, status: 'iniciado', providerRef: res.token, buyOrder, createdAt: iso(),
       environment: s.payment?.environment || 'integracion',
     });
     return { url: res.url, token: res.token };
   }
 
-  // Webpay devuelve al huésped a returnUrl con token_ws (pago procesado),
-  // o con TBK_TOKEN (el huésped anuló o se agotó el tiempo en el formulario).
+  // La pasarela avisa (confirmación servidor a servidor) y devuelve al huésped
+  // con el token; las dos llamadas pueden llegar en cualquier orden o a la vez.
   async function finishPayment({ token, aborted = false }) {
     const p = store.list('payments', { providerRef: token })[0];
     if (!p) throw new ServiceError('pago', 'No reconocemos este pago.', 404);
@@ -320,19 +326,29 @@ export function createService({ store, now = () => new Date(), random = Math.ran
       return { booking: view(store.get('bookings', b.id)), payment: 'anulado' };
     }
     const r = await payments.commit(token);
+    // Pendiente (por ejemplo, transferencia en curso): se espera el aviso de la pasarela.
+    if (r.status === 'PENDING') return { booking: view(b), payment: 'pendiente' };
+    if (r.status === 'ABORTED') return finishPayment({ token, aborted: true });
     const ok = r.status === 'AUTHORIZED' && r.responseCode === 0 && r.amount === p.amount;
     if (!ok) {
+      if (store.get('payments', p.id).status !== 'iniciado') return { booking: view(store.get('bookings', b.id)), payment: store.get('payments', p.id).status };
       store.update('payments', p.id, { status: 'rechazado', finishedAt: iso(), responseCode: r.responseCode, raw: r.raw });
       store.update('bookings', b.id, { history: event(b, 'El pago fue rechazado. La reserva sigue apartada hasta que venza el plazo.') });
       return { booking: view(store.get('bookings', b.id)), payment: 'rechazado' };
     }
-    const cardType = cardTypeFromWebpay(r.paymentTypeCode);
-    const fee = providerFee(p.amount, cardType === 'prepaid' ? 'prepaid' : cardType, s.payment);
+    const cardType = cardTypeFromCode(r.paymentTypeCode);
+    // Comisión real si la pasarela la informa (Flow); si no, la estimada por tipo de tarjeta.
+    const fee = r.fee != null
+      ? { fee: r.fee, vat: 0, net: p.amount - r.fee }
+      : providerFee(p.amount, cardType || 'credit', s.payment);
     let payStatus = 'autorizado';
+    let already = false;
     store.tx(() => {
+      // Si la confirmación y el regreso del huésped llegan a la vez, solo uno registra el pago.
+      if (store.get('payments', p.id).status !== 'iniciado') { already = true; return; }
       store.update('payments', p.id, {
         status: 'autorizado', finishedAt: iso(), cardType, cardLast4: r.cardLast4, installments: r.installments,
-        authorizationCode: r.authorizationCode, paymentTypeCode: r.paymentTypeCode,
+        authorizationCode: r.authorizationCode, paymentTypeCode: r.paymentTypeCode, media: r.media || null,
         fee: fee.fee, feeVat: fee.vat, net: fee.net, raw: r.raw,
       });
       const fresh = store.get('bookings', b.id);
@@ -353,11 +369,12 @@ export function createService({ store, now = () => new Date(), random = Math.ran
         amountPaid: paid,
         paymentStatus: paid >= fresh.total ? 'pagado' : 'anticipo_pagado',
         history: event(fresh, payStatus === 'autorizado'
-          ? `Pago aprobado (${CARD_LABEL[cardType]} terminada en ${r.cardLast4 || '—'}). Reserva confirmada.`
+          ? `Pago aprobado (${cardType ? `${CARD_LABEL[cardType]} terminada en ${r.cardLast4 || '—'}` : `con ${s.payment?.providerName || 'la pasarela'}${r.media ? ` · ${r.media}` : ''}`}). Reserva confirmada.`
           : 'Pago aprobado pero las noches ya no estaban libres. Requiere revisión del hostal para reubicar o devolver.'),
       });
     });
     const done = store.get('bookings', b.id);
+    if (already) return { booking: view(done), payment: store.get('payments', p.id).status };
     if (payStatus === 'autorizado') queueEmail(done, 'confirmacion');
     else queueEmail(done, 'revision');
     return { booking: view(done), payment: payStatus };
@@ -379,7 +396,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
     const refund = refundOverride ?? r.refund;
     let refundResult = null;
     if (refund > 0) {
-      const charge = store.list('payments', { bookingId: b.id }).find((p) => p.kind === 'cargo' && p.status === 'autorizado' && p.method === 'webpay');
+      const charge = store.list('payments', { bookingId: b.id }).find((p) => p.kind === 'cargo' && p.status === 'autorizado' && isOnline(p));
       let status = 'pendiente_manual';
       if (charge && payments?.refund) {
         try {
@@ -391,7 +408,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
         }
       }
       store.insert('payments', {
-        bookingId: b.id, kind: 'reembolso', provider: charge?.provider || 'manual', method: charge ? 'webpay' : 'manual',
+        bookingId: b.id, kind: 'reembolso', provider: charge?.provider || 'manual', method: charge ? 'online' : 'manual',
         amount: refund, status, createdAt: iso(), providerRef: charge?.providerRef || null, raw: refundResult,
       });
     }
@@ -626,8 +643,8 @@ export function createService({ store, now = () => new Date(), random = Math.ran
       const charged = pays.filter((p) => p.kind === 'cargo');
       const refunds = pays.filter((p) => p.kind === 'reembolso');
       const sum = (arr, k) => arr.reduce((a, p) => a + (p[k] || 0), 0);
-      const online = charged.filter((p) => p.method === 'webpay');
-      const atProperty = charged.filter((p) => p.method !== 'webpay');
+      const online = charged.filter(isOnline);
+      const atProperty = charged.filter((p) => !isOnline(p));
 
       const bookings = store.list('bookings');
       const stays = bookings.filter((b) => ['confirmada', 'en_estadia', 'completada'].includes(b.status) && b.checkin <= to && b.checkout > from);
@@ -653,7 +670,7 @@ export function createService({ store, now = () => new Date(), random = Math.ran
         bookingsCreated: booked.length,
         bookingsCancelled: booked.filter((b) => b.status === 'cancelada').length,
         nightsSold, capacity, occupancyPct: capacity ? (nightsSold / capacity) * 100 : 0,
-        byMethod: ['webpay', 'efectivo', 'transferencia', 'pos', 'otro'].map((m) => ({ method: m, amount: sum(charged.filter((p) => p.method === m), 'amount') })).filter((x) => x.amount),
+        byMethod: ['online', 'efectivo', 'transferencia', 'pos', 'otro'].map((m) => ({ method: m, amount: sum(charged.filter((p) => (m === 'online' ? isOnline(p) : p.method === m)), 'amount') })).filter((x) => x.amount),
       };
     },
 

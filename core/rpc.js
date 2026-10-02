@@ -4,7 +4,7 @@
 
 import { ServiceError } from './service.js';
 
-export function createRpc({ svc, sign, returnUrl }) {
+export function createRpc({ svc, sign, returnUrl, confirmUrl = () => '' }) {
   function emailFor(code) {
     code = String(code || '').trim().toUpperCase();
     const row = svc.admin.bookings({ q: code }).find((b) => b.code === code);
@@ -40,7 +40,7 @@ export function createRpc({ svc, sign, returnUrl }) {
     },
     async startPayment(a) {
       const { code } = await identify({ ...a, email: undefined, token: a.token });
-      return svc.startPayment(code, { returnUrl: returnUrl(code) });
+      return svc.startPayment(code, { returnUrl: returnUrl(code), confirmUrl: confirmUrl(code) });
     },
     async cancelBooking(a) {
       const { code, email } = await identify(a);

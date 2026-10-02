@@ -15,7 +15,7 @@ de base de datos.
 | Proveedor | NinjaHosting, plan **Wako** (cPanel, CloudLinux, LiteSpeed) |
 | Dominio | **hostalsantaelena.cl** |
 | Node.js | "Setup Node.js App" en cPanel, versiones 20.20.2 y **24.18.0** → usar **24** |
-| Conexiones salientes | HTTPS sin restricción (Transbank, Resend) |
+| Conexiones salientes | HTTPS sin restricción (Flow, Resend) |
 | ModSecurity | Activo; soporte puede desactivarlo para el sitio |
 | SSH / Terminal | **No hay.** Todo se hace desde cPanel |
 | Git en cPanel | **No soportado.** El código se sube por FTP (FileZilla) |
@@ -32,7 +32,7 @@ Las cuatro etapas del plan están hechas en el código:
 3. **Sin datos de ejemplo:** la base parte vacía y `INICIAR_BASE=1` carga solo lo real (5 habitaciones, políticas; temporadas y descuentos apagados; almuerzo, cena y lavandería sin precio). Panel → Ajustes permite cambiar correo y contraseña y descargar respaldos.
 4. **Documentación y pruebas:** [DESPLIEGUE-NINJAHOSTING.md](DESPLIEGUE-NINJAHOSTING.md) con el paso a paso solo con cPanel y FileZilla; 30 pruebas automáticas (incluida una reserva simultánea entre dos procesos) y recorrido completo en navegador con pago simulado.
 
-Queda para el dueño: los pasos de cPanel de [DESPLIEGUE-NINJAHOSTING.md](DESPLIEGUE-NINJAHOSTING.md), tarifas y fotos reales, contratar Webpay Plus y crear la cuenta de Resend.
+Queda para el dueño: los pasos de cPanel de [DESPLIEGUE-NINJAHOSTING.md](DESPLIEGUE-NINJAHOSTING.md), tarifas y fotos reales, crear la cuenta de Flow y crear la cuenta de Resend.
 
 ## Costos
 
@@ -41,6 +41,6 @@ Queda para el dueño: los pasos de cPanel de [DESPLIEGUE-NINJAHOSTING.md](DESPLI
 | NinjaHosting Wako | $59.900 + IVA al año (ya contratado) | [ninjahosting.cl](https://www.ninjahosting.cl/web-hosting-chile) |
 | Dominio hostalsantaelena.cl | $9.990 al año (ya comprado) | [nic.cl](https://www.nic.cl/dominios/tarifas.html) |
 | SSL, cron, base de datos | Incluidos | — |
-| Webpay Plus | Sin mensualidad; 1,75 % + IVA débito, 2,35 % + IVA crédito | [Transbank](https://ayuda.transbank.cl/tarifas-vender-webpay) |
+| Flow | Sin mensualidad; cerca de 2,89 % + IVA por venta (confirmar en el contrato) | [Flow](https://www.flow.cl) |
 | Correos (Resend) | Gratis hasta 3.000 al mes | [resend.com](https://resend.com/pricing) |
 | Demo en Vercel | Gratis | — |

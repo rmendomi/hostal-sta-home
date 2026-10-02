@@ -42,7 +42,7 @@ export async function renderAdmin({ api, info, root, go, rest }) {
       <a class="brand" href="#/inicio" aria-label="Ver el sitio público">${logoMark()}<span class="brand-name">Santa Elena<small>Panel</small></span></a>
       <nav class="adm-nav" aria-label="Panel">${NAV.map(([k, i, t]) => html`<a href="#/panel${k ? `/${k}` : ''}" class="${section === k ? 'on' : ''}" ${section === k ? raw('aria-current="page"') : ''}>${icon(i)}<span>${t}</span></a>`)}</nav>
       <div class="adm-side-foot">
-        ${api.mode === 'demo' ? html`<p class="adm-env adm-env-demo">Demostración · pagos simulados</p>` : html`<p class="adm-env ${me.environment === 'produccion' ? 'adm-env-live' : 'adm-env-demo'}">Webpay: ${me.environment === 'produccion' ? 'producción' : me.environment === 'simulado' ? 'simulado' : 'pruebas (integración)'}</p>`}
+        ${api.mode === 'demo' ? html`<p class="adm-env adm-env-demo">Demostración · pagos simulados</p>` : html`<p class="adm-env ${me.environment === 'produccion' ? 'adm-env-live' : 'adm-env-demo'}">Pagos: ${me.environment === 'produccion' ? 'producción' : me.environment === 'simulado' ? 'simulado' : 'pruebas (sandbox)'}</p>`}
         <a href="#/inicio" class="adm-link">${icon('house')} Ver sitio</a>
         <button class="adm-link" id="logout">${icon('logout')} Salir</button>
       </div>
@@ -106,7 +106,7 @@ async function viewToday(main) {
     </div>` : ''}
     <section class="kpis" aria-label="Resumen de ${month.label}">
       <div class="kpi"><span>Cobrado a huéspedes · ${month.label}</span><strong>${clp(sum.gross)}</strong><em>${clp(sum.online)} en línea · ${clp(sum.atProperty)} en el hostal</em></div>
-      <div class="kpi"><span>Comisiones Webpay (con IVA)</span><strong>${clp(sum.fees + sum.feesVat)}</strong><em>${sum.online ? `${sum.effectiveFeePct.toLocaleString('es-CL', { maximumFractionDigits: 2 })} % de lo cobrado en línea` : 'Sin cobros en línea'}</em></div>
+      <div class="kpi"><span>Comisiones de pago en línea</span><strong>${clp(sum.fees + sum.feesVat)}</strong><em>${sum.online ? `${sum.effectiveFeePct.toLocaleString('es-CL', { maximumFractionDigits: 2 })} % de lo cobrado en línea` : 'Sin cobros en línea'}</em></div>
       <div class="kpi kpi-main"><span>Recibe el hostal</span><strong>${clp(sum.net)}</strong><em>Cobrado − comisiones − devoluciones</em></div>
       <div class="kpi"><span>Saldos por cobrar al llegar</span><strong>${clp(sum.pendingBalances)}</strong><em>Reservas confirmadas</em></div>
       <div class="kpi"><span>Ocupación del mes</span><strong>${Math.round(sum.occupancyPct)} %</strong><em>${plural(sum.nightsSold, 'noche vendida', 'noches vendidas')} de ${sum.capacity}</em></div>
@@ -152,7 +152,7 @@ async function openBooking(id, refresh) {
   const b = await A('booking', { id });
   const v = b.view;
   const g = b.guest;
-  const online = b.payments.filter((p) => p.method === 'webpay');
+  const online = b.payments.filter((p) => (p.method === 'online' || p.method === 'webpay'));
   const actions = [];
   if (['confirmada', 'en_estadia', 'pendiente_pago'].includes(b.status) && v.balanceDue > 0) actions.push(html`<button class="btn btn-primary btn-sm" data-act="pay">${icon('cash')} Registrar pago</button>`);
   if (b.status === 'confirmada') actions.push(html`<button class="btn btn-soft btn-sm" data-act="in">Marcar llegada</button>`);
@@ -185,10 +185,10 @@ async function openBooking(id, refresh) {
         </dl>
         <h3 class="h5">Pagos y comisiones</h3>
         ${b.payments.length ? html`<div class="table-wrap"><table class="tbl tbl-sm"><thead><tr><th>Fecha</th><th>Movimiento</th><th class="r">Monto</th><th class="r">Comisión + IVA</th><th class="r">Recibe el hostal</th></tr></thead><tbody>
-          ${b.payments.map((p) => html`<tr><td class="nowrap">${human(p.createdAt.slice(0, 10))}</td><td>${p.kind === 'reembolso' ? 'Devolución' : 'Pago'} · ${p.method === 'webpay' ? `Webpay ${p.cardType ? { credit: 'crédito', debit: 'débito', prepaid: 'prepago' }[p.cardType] : ''}${p.cardLast4 ? ` ****${p.cardLast4}` : ''}` : p.method}<br><span class="muted small">${{ autorizado: 'Aprobado', iniciado: 'Iniciado, sin terminar', rechazado: 'Rechazado', anulado: 'Anulado por el huésped', pendiente_manual: 'Devolver manualmente' }[p.status] || p.status}</span></td>
+          ${b.payments.map((p) => html`<tr><td class="nowrap">${human(p.createdAt.slice(0, 10))}</td><td>${p.kind === 'reembolso' ? 'Devolución' : 'Pago'} · ${(p.method === 'online' || p.method === 'webpay') ? `En línea${p.media ? ` · ${p.media}` : ''}${p.cardType ? ` ${{ credit: 'crédito', debit: 'débito', prepaid: 'prepago' }[p.cardType]}` : ''}${p.cardLast4 ? ` ****${p.cardLast4}` : ''}` : p.method}<br><span class="muted small">${{ autorizado: 'Aprobado', iniciado: 'Iniciado, sin terminar', rechazado: 'Rechazado', anulado: 'Anulado por el huésped', pendiente_manual: 'Devolver manualmente' }[p.status] || p.status}</span></td>
             <td class="r">${p.kind === 'reembolso' ? '−' : ''}${clp(p.amount)}</td><td class="r">${p.fee ? clp(p.fee + p.feeVat) : '—'}</td><td class="r">${p.status === 'autorizado' ? (p.kind === 'reembolso' ? `−${clp(p.amount)}` : clp(p.net ?? p.amount)) : '—'}</td></tr>`)}
         </tbody></table></div>` : html`<p class="muted small">Sin pagos todavía.</p>`}
-        ${online.length ? html`<p class="muted small">Webpay abona débito en 24 horas hábiles y crédito en 48 horas hábiles, ya descontada la comisión.</p>` : ''}
+        ${online.length ? html`<p class="muted small">${ctx.info.payment?.providerName || 'La pasarela'} abona en ${ctx.info.payment?.payoutDays?.credit || 'pocos días hábiles'}, ya descontada la comisión.</p>` : ''}
         <h3 class="h5">Historial</h3>
         <ol class="timeline">${(b.history || []).slice().reverse().map((h) => html`<li><time>${new Date(h.at).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' })}</time><span>${h.what}</span></li>`)}</ol>
         ${b.emails?.length ? html`<h3 class="h5">Correos al huésped</h3><ul class="plain">${b.emails.map((m) => html`<li>${m.subject} · <span class="muted">${{ en_cola: 'en cola (sin enviar)', enviado: 'enviado', error: 'error' }[m.status] || m.status}</span></li>`)}</ul>` : ''}
@@ -237,7 +237,7 @@ function cancelSheet(b, v, after) {
   const sheet = openSheet(html`<h2 class="h3">Cancelar ${b.code}</h2>
     <p>${c.free ? html`Está dentro del plazo de cancelación gratis: según la política corresponde devolver <strong>${clp(c.refund)}</strong>.` : html`El plazo de cancelación gratis terminó el ${humanLong(v.freeCancelUntil)}: según la política se retiene ${clp(c.retained)} y se devuelve ${clp(c.refund)}.`}</p>
     <form id="cf" class="stack">
-      <div class="field"><label for="c-r">Monto a devolver (CLP)</label><input id="c-r" name="refund" inputmode="numeric" value="${c.refund}"><p class="hint">Puedes devolver más como gesto comercial, hasta ${clp(maxRefund)}. Las devoluciones de Webpay se piden automáticamente; si no se puede, queda marcada para devolver a mano.</p></div>
+      <div class="field"><label for="c-r">Monto a devolver (CLP)</label><input id="c-r" name="refund" inputmode="numeric" value="${c.refund}"><p class="hint">Puedes devolver más como gesto comercial, hasta ${clp(maxRefund)}. Las devoluciones de pagos en línea se hacen desde el panel de Flow: aquí quedan marcadas para devolver a mano.</p></div>
       <div class="field"><label for="c-why">Motivo <span class="opt">opcional</span></label><input id="c-why" name="reason"></div>
       <div class="row-end"><button type="button" class="btn btn-ghost" data-close>Volver</button><button class="btn btn-danger">Cancelar reserva</button></div>
     </form>`.toString(), { label: 'Cancelar reserva' });
@@ -654,13 +654,12 @@ async function viewMoney(main) {
       <section class="panel">
         <div class="panel-head"><h2 class="h4">Proveedor de pago</h2></div>
         <dl class="kv">
-          <div class="kv-wide"><dt>Proveedor</dt><dd>${pay.providerName} · ${{ integracion: 'ambiente de pruebas', produccion: 'producción', simulado: 'simulado' }[pay.environment] || pay.environment}</dd></div>
+          <div class="kv-wide"><dt>Proveedor</dt><dd>${pay.providerName} · ${{ sandbox: 'ambiente de pruebas', integracion: 'ambiente de pruebas', produccion: 'producción', simulado: 'simulado' }[pay.environment] || pay.environment}</dd></div>
           <div><dt>Débito y prepago</dt><dd>${pctFmt(pay.rates.debit)} + IVA</dd></div>
           <div><dt>Crédito</dt><dd>${pctFmt(pay.rates.credit)} + IVA</dd></div>
-          <div><dt>Comisión mínima</dt><dd>${pay.minFeeUF.debit} UF débito · ${pay.minFeeUF.credit} UF crédito</dd></div>
           <div><dt>Mensualidad</dt><dd>${pay.monthlyFee ? clp(pay.monthlyFee) : 'Sin mensualidad'}</dd></div>
           <div><dt>Abono</dt><dd>Débito ${pay.payoutDays.debit}; crédito ${pay.payoutDays.credit}</dd></div>
-          <div><dt>Fuente</dt><dd><a href="${pay.source}" target="_blank" rel="noopener">Transbank</a>, revisado el ${human(pay.verifiedAt, { year: true })}</dd></div>
+          <div><dt>Fuente</dt><dd><a href="${pay.source}" target="_blank" rel="noopener">${pay.providerName}</a>, revisado el ${human(pay.verifiedAt, { year: true })}</dd></div>
         </dl>
         <form id="prov" class="stack">
           <div class="fields">
@@ -668,7 +667,7 @@ async function viewMoney(main) {
             <div class="field"><label for="p-cre">Comisión crédito (%)</label><input id="p-cre" name="credit" inputmode="decimal" value="${(pay.rates.credit * 100).toFixed(2).replace('.', ',')}"></div>
             <div class="field"><label for="p-uf">Valor UF (CLP)</label><input id="p-uf" name="ufValue" inputmode="numeric" value="${pay.ufValue}"><p class="hint">Solo afecta la comisión mínima de pagos muy pequeños.</p></div>
           </div>
-          <p class="hint">Cambia las comisiones solo si Transbank te confirma otra tarifa. Afectan las estimaciones; lo real se calcula con el tipo de tarjeta de cada pago.</p>
+          <p class="hint">Cambia las comisiones solo si ${pay.providerName} te confirma otra tarifa. Afectan las estimaciones; en cada pago se usa la comisión que informa ${pay.providerName}.</p>
           <div class="row-end"><button class="btn btn-soft">Guardar</button></div>
         </form>
       </section>
@@ -676,7 +675,7 @@ async function viewMoney(main) {
     <section class="panel costs">
       <h2 class="h4">Costos de operación</h2>
       <table class="tbl"><tbody>
-        <tr><td>Webpay Plus (Transbank)</td><td>Sin mensualidad. Solo comisión por venta: ${pctFmt(pay.rates.debit)} débito, ${pctFmt(pay.rates.credit)} crédito, más IVA.</td></tr>
+        <tr><td>${pay.providerName}</td><td>Sin mensualidad. Solo comisión por venta: ${pay.rates.debit === pay.rates.credit ? pctFmt(pay.rates.credit) : `${pctFmt(pay.rates.debit)} débito, ${pctFmt(pay.rates.credit)} crédito`}, más IVA.</td></tr>
         <tr><td>Hosting</td><td>NinjaHosting plan Wako, $59.900 + IVA al año.</td></tr>
         <tr><td>Dominio .cl</td><td>$9.990 al año en NIC Chile.</td></tr>
         <tr><td>Correo de confirmaciones</td><td>Resend, plan gratuito hasta 3.000 correos al mes.</td></tr>
@@ -689,15 +688,15 @@ async function viewMoney(main) {
     $('#sum', main).innerHTML = html`<div class="money">
       <div class="money-flow">
         <div class="mf-row"><span>Cobrado a huéspedes</span><strong>${clp(x.gross)}</strong></div>
-        <div class="mf-row mf-sub"><span>En línea con Webpay</span><span>${clp(x.online)}</span></div>
-        ${x.byMethod.filter((m) => m.method !== 'webpay').map((m) => html`<div class="mf-row mf-sub"><span>En el hostal · ${{ efectivo: 'efectivo', transferencia: 'transferencia', pos: 'tarjeta POS', otro: 'otro' }[m.method]}</span><span>${clp(m.amount)}</span></div>`)}
-        <div class="mf-row mf-neg"><span>Comisión Webpay</span><span>−${clp(x.fees)}</span></div>
+        <div class="mf-row mf-sub"><span>En línea con ${ctx.info.payment?.providerName || 'la pasarela'}</span><span>${clp(x.online)}</span></div>
+        ${x.byMethod.filter((m) => m.method !== 'online').map((m) => html`<div class="mf-row mf-sub"><span>En el hostal · ${{ efectivo: 'efectivo', transferencia: 'transferencia', pos: 'tarjeta POS', otro: 'otro' }[m.method]}</span><span>${clp(m.amount)}</span></div>`)}
+        <div class="mf-row mf-neg"><span>Comisión ${ctx.info.payment?.providerName || 'pago en línea'}</span><span>−${clp(x.fees)}</span></div>
         <div class="mf-row mf-neg"><span>IVA de la comisión</span><span>−${clp(x.feesVat)}</span></div>
         <div class="mf-row mf-neg"><span>Devoluciones a huéspedes</span><span>−${clp(x.refunded)}</span></div>
         <div class="mf-row mf-total"><span>Recibe el hostal · ${p.label}</span><strong>${clp(x.net)}</strong></div>
       </div>
       <div class="money-side">
-        <div class="kpi"><span>Costo efectivo de cobrar en línea</span><strong>${x.online ? `${x.effectiveFeePct.toLocaleString('es-CL', { maximumFractionDigits: 2 })} %` : '—'}</strong><em>Comisión + IVA sobre lo cobrado con Webpay</em></div>
+        <div class="kpi"><span>Costo efectivo de cobrar en línea</span><strong>${x.online ? `${x.effectiveFeePct.toLocaleString('es-CL', { maximumFractionDigits: 2 })} %` : '—'}</strong><em>Comisión sobre lo cobrado en línea</em></div>
         <div class="kpi"><span>Saldos por cobrar al llegar</span><strong>${clp(x.pendingBalances)}</strong><em>De reservas confirmadas</em></div>
         <div class="kpi"><span>Reservas creadas · canceladas</span><strong>${x.bookingsCreated} · ${x.bookingsCancelled}</strong><em>Ocupación ${Math.round(x.occupancyPct)} %</em></div>
       </div>

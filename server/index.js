@@ -11,8 +11,8 @@ import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { openStore } from './store-sqlite.js';
 import { createService, ServiceError } from '../core/service.js';
 import { createRpc } from '../core/rpc.js';
-import { seedProduction } from '../core/seed.js';
-import { createWebpay } from './payments/webpay.js';
+import { seedProduction, PROVIDER_FLOW } from '../core/seed.js';
+import { createFlow } from './payments/flow.js';
 import { createSimulatedPayments } from '../core/simulated-payments.js';
 import { createAuth, signer } from './auth.js';
 import { startMailer } from './mailer.js';
@@ -24,8 +24,8 @@ export async function createApp(env = process.env) {
     port: +(env.PORT || 3000),
     baseUrl: (env.BASE_URL || `http://localhost:${env.PORT || 3000}`).replace(/\/$/, ''),
     dataDir: env.DATA_DIR || join(ROOT, 'data'),
-    payments: env.PAYMENTS || 'webpay', // 'webpay' | 'simulado'
-    webpayEnv: env.WEBPAY_ENV || 'integracion',
+    payments: env.PAYMENTS === 'simulado' ? 'simulado' : 'flow', // 'flow' | 'simulado'
+    flowEnv: env.FLOW_ENV || 'sandbox', // 'sandbox' (pruebas) | 'produccion'
   };
   await mkdir(join(cfg.dataDir, 'uploads'), { recursive: true });
 
@@ -44,14 +44,20 @@ export async function createApp(env = process.env) {
   if (!store.list('rooms').length && env.INICIAR_BASE === '1') seedProduction(store);
   const needsSetup = () => !store.list('rooms').length;
 
-  const payments = cfg.payments === 'simulado'
-    ? createSimulatedPayments({ urlFor: (token) => `${cfg.baseUrl}/pago-simulado/${token}` })
-    : createWebpay({ environment: cfg.webpayEnv, commerceCode: env.WEBPAY_COMMERCE_CODE, apiKey: env.WEBPAY_API_KEY });
+  // Sin credenciales de Flow el sitio igual funciona: solo se desactiva el pago en línea.
+  let payments = null;
+  if (cfg.payments === 'simulado') payments = createSimulatedPayments({ urlFor: (token) => `${cfg.baseUrl}/pago-simulado/${token}` });
+  else if (env.FLOW_API_KEY && env.FLOW_SECRET_KEY) payments = createFlow({ environment: cfg.flowEnv, apiKey: env.FLOW_API_KEY, secretKey: env.FLOW_SECRET_KEY });
+  else console.warn('Pago en línea desactivado: faltan FLOW_API_KEY y FLOW_SECRET_KEY.');
   const s0 = store.getSettings();
-  if (s0.payment) store.saveSettings({ ...s0, payment: { ...s0.payment, environment: cfg.payments === 'simulado' ? 'simulado' : cfg.webpayEnv } });
+  if (s0.payment) {
+    // Al pasar a Flow se reemplazan las comisiones de Webpay por las de Flow (una sola vez).
+    const base = s0.payment.provider === 'flow' ? s0.payment : { ...PROVIDER_FLOW };
+    store.saveSettings({ ...s0, payment: { ...base, environment: cfg.payments === 'simulado' ? 'simulado' : cfg.flowEnv } });
+  }
 
   const svc = createService({ store, payments });
-  const rpc = createRpc({ svc, sign, returnUrl: () => `${cfg.baseUrl}/pago/retorno` });
+  const rpc = createRpc({ svc, sign, returnUrl: () => `${cfg.baseUrl}/pago/retorno`, confirmUrl: () => `${cfg.baseUrl}/pago/confirmacion` });
   const secure = cfg.baseUrl.startsWith('https://');
   const auth = createAuth({ store, secure });
   if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD && !auth.hasAdmins()) auth.createAdmin({ email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD, name: 'Administración' });
@@ -116,7 +122,7 @@ export async function createApp(env = process.env) {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-site',
-    'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; form-action 'self' https://webpay3g.transbank.cl https://webpay3gint.transbank.cl; frame-ancestors 'none'; base-uri 'self'",
+    'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'",
     ...(secure ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}),
   };
   function send(res, status, body, headers = {}) {
@@ -165,17 +171,14 @@ export async function createApp(env = process.env) {
     return full.startsWith(base) ? full : null;
   }
 
-  // Webpay devuelve al huésped aquí (GET o POST según el caso).
+  // Flow devuelve al huésped aquí con el token del pago (POST; GET en la pasarela simulada).
+  // Si Flow ya avisó por /pago/confirmacion, finishPayment solo informa el estado.
   async function paymentReturn(req, res, params) {
-    const token = params.token_ws || params.TBK_TOKEN;
+    const token = params.token;
     let dest = `${cfg.baseUrl}/#/inicio`;
     try {
-      if (!token) {
-        // Tiempo agotado en el formulario de pago: Webpay no envía token.
-        const p = params.TBK_ID_SESION ? store.get('bookings', params.TBK_ID_SESION) : null;
-        if (p) dest = `${cfg.baseUrl}/#/reserva/${p.code}/${await sign(p.code)}/anulado`;
-      } else {
-        const r = await svc.finishPayment({ token, aborted: !params.token_ws });
+      if (token) {
+        const r = await svc.finishPayment({ token });
         const code = r.booking.code;
         dest = `${cfg.baseUrl}/#/reserva/${code}/${await sign(code)}/${r.payment}`;
       }
@@ -224,6 +227,18 @@ export async function createApp(env = process.env) {
       return send(res, 503, setupPage(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     }
 
+    // Aviso de Flow servidor a servidor (POST con token): confirma el pago aunque el huésped no vuelva al sitio.
+    if (path === '/pago/confirmacion' && req.method === 'POST') {
+      const { token } = await readForm(req);
+      if (!token) return send(res, 400, 'Falta token');
+      try { await svc.finishPayment({ token }); return send(res, 200, 'OK'); }
+      catch (e) {
+        if (e instanceof ServiceError) return send(res, e.status, e.message);
+        console.error('confirmación de pago', e);
+        return send(res, 500, 'Error');
+      }
+    }
+
     if (path === '/pago/retorno') {
       const params = req.method === 'POST' ? await readForm(req) : Object.fromEntries(url.searchParams);
       return paymentReturn(req, res, params);
@@ -233,28 +248,12 @@ export async function createApp(env = process.env) {
       const token = path.split('/')[2];
       if (req.method === 'POST') {
         const f = await readForm(req);
-        // Llegada desde /pago/ir (POST con token_ws, como hace Webpay): mostrar el formulario.
-        if (!f.r) {
-          const page = simulatedGatewayPage(token);
-          return page ? send(res, 200, page, { 'Content-Type': 'text/html; charset=utf-8' }) : send(res, 404, 'No encontrado');
-        }
-        if (f.r === 'abort') return send(res, 303, '', { Location: `/pago/retorno?TBK_TOKEN=${encodeURIComponent(token)}` });
-        payments.decide(token, { approve: f.r !== 'reject', cardType: f.r === 'credit' ? 'credit' : 'debit' });
-        return send(res, 303, '', { Location: `/pago/retorno?token_ws=${encodeURIComponent(token)}` });
+        if (!f.r) return send(res, 400, 'Falta la decisión');
+        payments.decide(token, f.r === 'abort' ? { abort: true } : { approve: f.r !== 'reject', cardType: f.r === 'credit' ? 'credit' : 'debit' });
+        return send(res, 303, '', { Location: `/pago/retorno?token=${encodeURIComponent(token)}` });
       }
       const page = simulatedGatewayPage(token);
       return page ? send(res, 200, page, { 'Content-Type': 'text/html; charset=utf-8' }) : send(res, 404, 'No encontrado');
-    }
-
-    // Redirección al formulario de Webpay (requiere POST con token_ws).
-    if (path === '/pago/ir' && req.method === 'GET') {
-      const to = url.searchParams.get('url') || '';
-      const token = url.searchParams.get('token') || '';
-      if (!/^https:\/\/webpay3g(int)?\.transbank\.cl\//.test(to) && !to.startsWith(`${cfg.baseUrl}/pago-simulado/`)) return send(res, 400, 'Destino inválido');
-      const h = (s) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-      return send(res, 200, `<!doctype html><meta charset="utf-8"><title>Redirigiendo a Webpay…</title><body style="font-family:sans-serif;padding:24px">
-<form id="f" method="post" action="${h(to)}"><input type="hidden" name="token_ws" value="${h(token)}"><p>Te estamos llevando al pago seguro de Webpay…</p><button>Continuar al pago</button></form>
-<script src="/pago-ir.js"></script>`, { 'Content-Type': 'text/html; charset=utf-8' });
     }
 
     if (path.startsWith('/api/')) {
@@ -454,7 +453,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const app = await createApp();
   app.server.listen(app.cfg.port, () => {
     console.log(`Santa Elena de Maipo Home en ${app.cfg.baseUrl}`);
-    console.log(`Pagos: ${app.cfg.payments === 'simulado' ? 'SIMULADOS (sin dinero real)' : `Webpay ${app.cfg.webpayEnv}`}`);
+    console.log(`Pagos: ${app.cfg.payments === 'simulado' ? 'SIMULADOS (sin dinero real)' : `Flow ${app.cfg.flowEnv}`}`);
     if (!app.auth.hasAdmins()) console.log('Aún no hay usuario del panel. Crea uno con: npm run admin:crear -- correo@dominio.cl');
   });
 }

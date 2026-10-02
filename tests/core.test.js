@@ -96,7 +96,7 @@ test('anticipo total si la llegada es muy pronto', () => {
   assert.equal(q.payment.dueNow, 38000);
 });
 
-test('comisión Webpay: porcentaje, mínimo en UF e IVA', () => {
+test('comisión del proveedor: porcentaje, mínimo en UF e IVA', () => {
   const pay = { rates: { credit: 0.0235, debit: 0.0175 }, minFeeUF: { credit: 0.003515, debit: 0.00226 }, ufValue: 41016, feeVatRate: 0.19 };
   assert.deepEqual(providerFee(40500, 'credit', pay), { rate: 0.0235, fee: 952, vat: 181, total: 1133, net: 39367, minApplied: false });
   assert.deepEqual(providerFee(40500, 'debit', pay), { rate: 0.0175, fee: 709, vat: 135, total: 844, net: 39656, minApplied: false });
@@ -137,9 +137,9 @@ test('recorrido completo: reservar, pagar con débito, confirmar', async () => {
   assert.equal(again.booking.amountPaid, 22800);
   const sum = svc.admin.summary({ from: '2026-10-01', to: '2026-10-31' });
   assert.equal(sum.gross, 22800);
-  assert.equal(sum.fees, 399); // 1,75 % de 22.800
-  assert.equal(sum.feesVat, 76);
-  assert.equal(sum.net, 22800 - 399 - 76);
+  assert.equal(sum.fees, 659); // 2,89 % de 22.800 (comisión estimada de Flow)
+  assert.equal(sum.feesVat, 125);
+  assert.equal(sum.net, 22800 - 659 - 125);
   // Buscar la reserva exige el correo correcto.
   assert.throws(() => svc.getBooking(b.code, 'otro@correo.cl'), /No encontramos/);
   assert.equal(svc.getBooking(b.code.toLowerCase(), 'ANA@example.cl').code, b.code);

@@ -32,8 +32,9 @@ export async function createApi() {
     mode: 'server',
     pub: (m, a) => call('public', m, a),
     admin: (m, a) => call('admin', m, a),
-    goToPayment({ url, token }) {
-      location.href = `/pago/ir?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
+    // La pasarela entrega la URL completa (Flow: url?token=…); solo se navega a ella.
+    goToPayment({ url }) {
+      location.href = url;
     },
   };
 }

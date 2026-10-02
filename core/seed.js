@@ -4,19 +4,20 @@
 // público era "desde 53 € por noche". Lo marcado 'por_confirmar' o 'estimada'
 // debe revisarlo el dueño en el panel.
 
-export const PROVIDER_WEBPAY = {
-  provider: 'webpay',
-  providerName: 'Webpay Plus (Transbank)',
-  environment: 'integracion', // 'integracion' (pruebas) | 'produccion'
-  // Comisiones publicadas por Transbank para nuevos comercios, sin IVA.
-  rates: { credit: 0.0235, debit: 0.0175, prepaid: 0.0175 },
-  minFeeUF: { credit: 0.003515, debit: 0.00226, prepaid: 0.00226 },
+export const PROVIDER_FLOW = {
+  provider: 'flow',
+  providerName: 'Flow',
+  environment: 'sandbox', // 'sandbox' (pruebas) | 'produccion'
+  // Comisión publicada por Flow, sin IVA, igual para débito y crédito. Confirmar
+  // la tarifa del contrato en el panel; en cada pago se usa la que informa Flow.
+  rates: { credit: 0.0289, debit: 0.0289, prepaid: 0.0289 },
+  minFeeUF: { credit: 0, debit: 0, prepaid: 0 },
   feeVatRate: 0.19,
-  ufValue: 41016, // UF del 25-09-2026 (mindicador.cl). Actualizar en el panel.
+  ufValue: 41016,
   monthlyFee: 0,
-  payoutDays: { debit: '24 horas hábiles', credit: '48 horas hábiles' },
-  source: 'https://ayuda.transbank.cl/tarifas-vender-webpay',
-  verifiedAt: '2026-09-26',
+  payoutDays: { debit: '1 a 2 días hábiles', credit: '1 a 2 días hábiles' },
+  source: 'https://www.flow.cl',
+  verifiedAt: '2026-10-02',
 };
 
 export function seedSettings({ demo = false } = {}) {
@@ -48,7 +49,7 @@ export function seedSettings({ demo = false } = {}) {
     deposit: { mode: 'percent', percent: 30, fullIfWithinDays: 2 },
     cancellation: { freeUntilDays: 7 },
     modification: { freeUntilDays: 3 },
-    payment: { ...PROVIDER_WEBPAY },
+    payment: { ...PROVIDER_FLOW },
     houseRules: [
       'Llegada desde las 15:00 y salida hasta las 11:00.',
       'No se admiten mascotas.',

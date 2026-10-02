@@ -1,6 +1,6 @@
 // "Boleta clara": el detalle del precio que ve el huésped y el panel.
 // Muestra cada noche, cargos, descuento, total, qué se paga hoy y al llegar,
-// y, solo en el panel (fees: true), cuánto se queda Webpay y cuánto recibe el hostal.
+// y, solo en el panel (fees: true), cuánto se queda la pasarela de pago y cuánto recibe el hostal.
 
 import { html, clp, human, plural, pctFmt, icon } from './ui.js';
 import { UNIT_LABEL } from '../core/pricing.js';
@@ -24,7 +24,7 @@ export function ledger(q, { info, booking = null, compact = false, fees = false 
   const p = q.payment;
   const prov = q.provider;
   const pay = info?.payment;
-  const paidOnline = booking ? (booking.payments || []).filter((x) => x.kind === 'cargo' && x.method === 'webpay') : [];
+  const paidOnline = booking ? (booking.payments || []).filter((x) => x.kind === 'cargo' && (x.method === 'online' || x.method === 'webpay')) : [];
   return html`<div class="ledger" aria-label="Detalle del precio">
     <div class="ledger-head"><span>Detalle del precio</span><span class="mono">${q.currency} · ${plural(q.nights, 'noche', 'noches')}</span></div>
     ${lines}
@@ -51,22 +51,25 @@ function bookingSplit(b) {
 }
 
 function moneyFlow({ prov, pay, booking, paidOnline }) {
+  const name = pay?.providerName || 'La pasarela de pago';
   let body;
   if (booking) {
     const p = paidOnline[0];
-    const rate = pay?.rates?.[p.cardType] ?? 0;
-    body = html`<p>Pagaste ${clp(p.amount)} con tarjeta de ${p.cardType === 'credit' ? 'crédito' : 'débito'}. Webpay cobra al hostal ${pctFmt(rate)} + IVA por esa venta; tú no pagas esa comisión.</p>`;
+    const rate = pay?.rates?.[p.cardType || 'credit'] ?? 0;
+    body = html`<p>Pagaste ${clp(p.amount)} en línea${p.media ? ` (${p.media})` : ''}. ${name} cobra al hostal cerca de ${pctFmt(rate)} + IVA por esa venta; tú no pagas esa comisión.</p>`;
   } else {
     const deb = prov.debit; const cre = prov.credit;
+    const same = deb.total === cre.total;
     const share = Math.max(2, (cre.total / (cre.net + cre.total)) * 100);
     body = html`
-      <div class="flow-bar" role="img" aria-label="De tu pago de hoy, el hostal recibe entre ${clp(cre.net)} y ${clp(deb.net)}; el resto es la comisión de Webpay"><span class="flow-net" style="width:${100 - share}%"></span><span class="flow-fee" style="width:${share}%"></span></div>
+      <div class="flow-bar" role="img" aria-label="De tu pago de hoy, el hostal recibe entre ${clp(cre.net)} y ${clp(deb.net)}; el resto es la comisión de ${name}"><span class="flow-net" style="width:${100 - share}%"></span><span class="flow-fee" style="width:${share}%"></span></div>
       <div class="flow-rows">
-        <div><span class="dot dot-net"></span>Recibe el hostal</div><div class="num">${clp(cre.net)} – ${clp(deb.net)}</div>
-        <div><span class="dot dot-fee"></span>Comisión Webpay con débito (${pctFmt(pay?.rates?.debit ?? 0)} + IVA)</div><div class="num">${clp(deb.total)}</div>
-        <div><span class="dot dot-fee"></span>Comisión Webpay con crédito (${pctFmt(pay?.rates?.credit ?? 0)} + IVA)</div><div class="num">${clp(cre.total)}</div>
+        <div><span class="dot dot-net"></span>Recibe el hostal</div><div class="num">${same ? clp(cre.net) : `${clp(cre.net)} – ${clp(deb.net)}`}</div>
+        ${same ? html`<div><span class="dot dot-fee"></span>Comisión ${name} (${pctFmt(pay?.rates?.credit ?? 0)} + IVA)</div><div class="num">${clp(cre.total)}</div>` : html`
+        <div><span class="dot dot-fee"></span>Comisión ${name} con débito (${pctFmt(pay?.rates?.debit ?? 0)} + IVA)</div><div class="num">${clp(deb.total)}</div>
+        <div><span class="dot dot-fee"></span>Comisión ${name} con crédito (${pctFmt(pay?.rates?.credit ?? 0)} + IVA)</div><div class="num">${clp(cre.total)}</div>`}
       </div>
-      <p>La comisión la paga el hostal: tu total no cambia según la tarjeta.${pay?.verifiedAt ? ` Tarifas publicadas por Transbank, revisadas el ${human(pay.verifiedAt, { year: true })}.` : ''}</p>`;
+      <p>La comisión la paga el hostal: tu total no cambia según la tarjeta.${pay?.verifiedAt ? ` Tarifas publicadas por ${name}, revisadas el ${human(pay.verifiedAt, { year: true })}.` : ''}</p>`;
   }
   return html`<details class="lg-flow"><summary>${icon('info')} ¿Cuánto recibe el hostal de tu pago?</summary><div class="lg-flow-body">${body}</div></details>`;
 }

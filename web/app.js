@@ -118,7 +118,7 @@ function siteFooter() {
       <div><h2 class="foot-h">Tu reserva</h2><p><a href="#/mi-reserva">Ver, cambiar o cancelar</a></p><p><a href="#/inicio#condiciones">Condiciones y políticas</a></p></div>
       <div><h2 class="foot-h">Administración</h2><p><a href="#/panel">Panel del hostal</a></p></div>
     </div>
-    <p class="wrap foot-small">Pagos procesados por ${S.info.payment?.providerName || 'Webpay'}: este sitio nunca ve ni guarda los datos de tu tarjeta. Tus datos se usan solo para gestionar tu reserva.</p>
+    <p class="wrap foot-small">Pagos procesados por ${S.info.payment?.providerName || 'Flow'}: este sitio nunca ve ni guarda los datos de tu tarjeta. Tus datos se usan solo para gestionar tu reserva.</p>
   </footer>
   ${b.whatsapp ? html`<a class="wa-float" href="${waHref(b)}" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp">${icon('chat')}<span>WhatsApp</span></a>` : ''}`.toString();
 }
@@ -287,7 +287,7 @@ function viewHome(main) {
     <ul class="trust">
       <li>${icon('house')}Reservas directo con el hostal</li>
       <li>${icon('receipt')}Precio final con IVA incluido</li>
-      <li>${icon('lock')}Pago seguro con ${S.info.payment?.providerName || 'Webpay'}</li>
+      <li>${icon('lock')}Pago seguro con ${S.info.payment?.providerName || 'Flow'}</li>
     </ul>
   </section>
 
@@ -386,7 +386,7 @@ function viewHome(main) {
 
 function payText() {
   const d = S.info.deposit;
-  return `${d.mode === 'percent' ? `Al reservar pagas un anticipo del ${d.percent} % con ${S.info.payment?.providerName || 'Webpay'}. El saldo se paga al llegar.` : 'Según se indica al reservar.'}${d.fullIfWithinDays != null ? ` Si la llegada es en ${plural(d.fullIfWithinDays, 'día', 'días')} o menos, se paga el total.` : ''}`;
+  return `${d.mode === 'percent' ? `Al reservar pagas un anticipo del ${d.percent} % con ${S.info.payment?.providerName || 'Flow'}. El saldo se paga al llegar.` : 'Según se indica al reservar.'}${d.fullIfWithinDays != null ? ` Si la llegada es en ${plural(d.fullIfWithinDays, 'día', 'días')} o menos, se paga el total.` : ''}`;
 }
 
 // Preguntas frecuentes armadas con los datos del panel, para que no queden desactualizadas.
@@ -397,7 +397,7 @@ function faq(b) {
     ['¿A qué hora puedo llegar y hasta qué hora me puedo quedar?', `La llegada es desde las ${b.checkinFrom} y la salida hasta las ${b.checkoutUntil}. La recepción está abierta las 24 horas, así que puedes llegar tarde sin problema.`],
     ['¿Tienen estacionamiento?', 'Sí, dentro de la propiedad.'],
     ['¿El desayuno está incluido?', 'Sí, en las cuatro habitaciones de la casa. La cabaña no incluye desayuno: tiene cocina propia para que prepares lo tuyo. También preparamos almuerzo y cena caseros a pedido, que se pagan en el hostal.'],
-    ['¿Cómo se paga la reserva?', `${payText()} Tu tarjeta la ingresas en la página de ${S.info.payment?.providerName || 'Webpay'}: nosotros nunca vemos sus datos.`],
+    ['¿Cómo se paga la reserva?', `${payText()} Pagas en la página de ${S.info.payment?.providerName || 'Flow'} con tarjeta de débito, crédito o prepago, chilena o extranjera: nosotros nunca vemos sus datos.`],
     ['¿Puedo cancelar o cambiar las fechas?', `Puedes cancelar gratis hasta ${plural(S.info.cancellation.freeUntilDays, 'día', 'días')} antes de la llegada y te devolvemos todo lo pagado. Las fechas se cambian en línea, desde "Mi reserva", hasta ${plural(S.info.modification?.freeUntilDays ?? 0, 'día', 'días')} antes.`],
     ['¿Emiten factura?', 'Sí. Escríbenos por WhatsApp antes de pagar y te indicamos qué datos de la empresa necesitamos; la reserva se paga igual en línea o en el hostal.'],
     ['¿Tienen tarifas para empresas?', 'Sí, tenemos tarifas especiales para empresas, equipos de trabajo y estadías largas. Se coordinan directo por WhatsApp, no en la reserva en línea.'],
@@ -645,7 +645,7 @@ async function viewCheckout(main) {
         <p class="field-err" id="accept-err" hidden>Marca la casilla para continuar.</p>
         <div class="co-pay">
           <button class="btn btn-primary btn-lg" id="pay-btn" type="button">…</button>
-          <p class="secure">${icon('lock')} Pagas en el sitio seguro de Webpay (Transbank). Tu reserva queda apartada ${S.info.holdMinutes} minutos mientras pagas.</p>
+          <p class="secure">${icon('lock')} Pagas en el sitio seguro de ${S.info.payment?.providerName || 'Flow'}, con tarjetas chilenas o extranjeras. Tu reserva queda apartada ${S.info.holdMinutes} minutos mientras pagas.</p>
         </div>
       </section>
     </div>
@@ -658,7 +658,7 @@ async function viewCheckout(main) {
       S.quote = q;
       $('#co-ledger', main).innerHTML = ledger(q, { info: S.info });
       const p = q.payment;
-      $('#pay-btn', main).innerHTML = p.dueNow > 0 ? html`${icon('lock')} Pagar ${p.mode === 'percent' ? 'anticipo de ' : ''}${clp(p.dueNow)} con Webpay` : 'Confirmar reserva';
+      $('#pay-btn', main).innerHTML = p.dueNow > 0 ? html`${icon('lock')} Pagar ${p.mode === 'percent' ? 'anticipo de ' : ''}${clp(p.dueNow)}` : 'Confirmar reserva';
       $('#conds', main).innerHTML = html`
         <li><strong>Hoy pagas ${clp(p.dueNow)}</strong>${p.dueAtProperty ? html` y <strong>${clp(p.dueAtProperty)} al llegar</strong>` : ''}. ${p.reason}</li>
         <li>Cancelación gratis hasta el <strong>${humanLong(q.policy.freeCancelUntil)}</strong>: te devolvemos todo lo pagado. Después se retiene el anticipo.</li>
@@ -747,7 +747,7 @@ function viewGateway(main, token) {
   if (!t) return viewMessage(main, 'Pago no encontrado', 'Esta sesión de pago simulado ya no existe. Vuelve a buscar tu reserva en "Mi reserva".');
   main.innerHTML = html`<section class="wrap gateway">
     <div class="gw-card">
-      <p class="gw-demo">${icon('info')} Pasarela <strong>simulada</strong>. En el sitio publicado aquí se abre el formulario oficial de Webpay.</p>
+      <p class="gw-demo">${icon('info')} Pasarela <strong>simulada</strong>. En el sitio publicado aquí se abre la página de pago de Flow.</p>
       <p class="eyebrow">Pago a ${S.info.business.name}</p>
       <h1 class="h2">${clp(t.amount)} <span class="muted">CLP</span></h1>
       <p class="muted">Orden ${t.buyOrder}</p>
@@ -780,7 +780,7 @@ async function viewBooking(main, [code, token, result]) {
   const biz = S.info.business;
   const banner = {
     confirmada: ['ok', 'check', result === 'autorizado' || result === 'confirmada' ? '¡Listo! Tu reserva está confirmada.' : 'Reserva confirmada', `Te enviamos el detalle a ${b.guest.email}. Guarda tu código: lo necesitas para cambiar o cancelar.`],
-    pendiente_pago: ['warn', 'clock', result === 'rechazado' ? 'El pago no se aprobó' : result === 'anulado' ? 'El pago no se completó' : 'Falta pagar el anticipo', result === 'rechazado' ? 'Tu banco rechazó el pago. Puedes intentar con otra tarjeta: tus noches siguen apartadas un momento más.' : 'Tus noches siguen apartadas mientras corre el tiempo. Completa el pago para confirmar.'],
+    pendiente_pago: ['warn', 'clock', result === 'rechazado' ? 'El pago no se aprobó' : result === 'anulado' ? 'El pago no se completó' : result === 'pendiente' ? 'Tu pago se está procesando' : 'Falta pagar el anticipo', result === 'rechazado' ? 'Tu banco rechazó el pago. Puedes intentar con otra tarjeta: tus noches siguen apartadas un momento más.' : result === 'pendiente' ? 'Apenas el medio de pago lo confirme, tu reserva queda confirmada y te avisamos por correo. No vuelvas a pagar.' : 'Tus noches siguen apartadas mientras corre el tiempo. Completa el pago para confirmar.'],
     expirada: ['bad', 'alert', 'La reserva expiró', 'No se completó el pago a tiempo y las noches se liberaron. No se hizo ningún cargo. Puedes buscar de nuevo.'],
     cancelada: ['muted', 'x', 'Reserva cancelada', b.amountRefunded ? `Devolvemos ${clp(b.amountRefunded)} al mismo medio de pago. Según tu banco, puede tardar algunos días hábiles en verse.` : 'No hubo devolución según la política de cancelación.'],
     requiere_revision: ['warn', 'alert', 'Recibimos tu pago; estamos revisando', 'El pago llegó justo después de que se liberaran tus noches. Te contactaremos hoy para reubicarte o devolverte el dinero.'],
@@ -790,7 +790,7 @@ async function viewBooking(main, [code, token, result]) {
   }[b.status] || ['muted', 'info', b.status, ''];
   main.innerHTML = html`<div class="wrap booking">
     <div class="bk-banner bk-${banner[0]}">${icon(banner[1])}<div><h1 class="h2">${banner[2]}</h1><p>${banner[3]}</p>
-      ${b.status === 'pendiente_pago' ? html`<div class="bk-pay"><button class="btn btn-primary" id="retry">${icon('lock')} Pagar ${clp(b.depositAmount)} con Webpay</button><span class="timer">Quedan <strong id="left">–</strong></span></div>` : ''}
+      ${b.status === 'pendiente_pago' ? html`<div class="bk-pay"><button class="btn btn-primary" id="retry">${icon('lock')} Pagar ${clp(b.depositAmount)}</button><span class="timer">Quedan <strong id="left">–</strong></span></div>` : ''}
       ${b.status === 'expirada' ? html`<a class="btn btn-primary" href="#/buscar">Buscar de nuevo</a>` : ''}
     </div></div>
     <div class="bk-grid">
@@ -801,7 +801,7 @@ async function viewBooking(main, [code, token, result]) {
           <div><dt>Salida</dt><dd>${humanLong(b.checkout)}<span>hasta las ${biz.checkoutUntil}</span></dd></div>
           <div><dt>Habitaciones</dt><dd>${b.items.map((i) => html`${i.roomName} · ${plural(i.adults + i.children, 'persona', 'personas')}<br>`)}</dd></div>
           <div><dt>A nombre de</dt><dd>${b.guest.firstName} ${b.guest.lastName}<span>${b.guest.email}</span></dd></div>
-          <div><dt>Pago</dt><dd>${PAY_STATUS[b.paymentStatus] || b.paymentStatus}${b.payments.map((p) => html`<span>${p.kind === 'reembolso' ? 'Devolución' : 'Pago'} ${clp(p.amount)} · ${p.method === 'webpay' ? `Webpay ${p.cardType === 'credit' ? 'crédito' : p.cardType === 'debit' ? 'débito' : 'prepago'}${p.cardLast4 ? ` ****${p.cardLast4}` : ''}` : p.method}</span>`)}</dd></div>
+          <div><dt>Pago</dt><dd>${PAY_STATUS[b.paymentStatus] || b.paymentStatus}${b.payments.map((p) => html`<span>${p.kind === 'reembolso' ? 'Devolución' : 'Pago'} ${clp(p.amount)} · ${(p.method === 'online' || p.method === 'webpay') ? `en línea${p.media ? ` (${p.media})` : ''}${p.cardType ? ` ${p.cardType === 'credit' ? 'crédito' : p.cardType === 'debit' ? 'débito' : 'prepago'}` : ''}${p.cardLast4 ? ` ****${p.cardLast4}` : ''}` : p.method}</span>`)}</dd></div>
           <div><dt>Dirección</dt><dd>${biz.address}<span><a href="${biz.mapsUrl}" target="_blank" rel="noopener">Cómo llegar</a> · ${biz.phone}</span></dd></div>
         </dl>
         ${['confirmada'].includes(b.status) ? html`<div class="bk-actions">

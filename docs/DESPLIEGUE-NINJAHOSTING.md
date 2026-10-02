@@ -11,8 +11,9 @@ derecha en cPanel y en "Información general").
 Abre un ticket en NinjaHosting:
 
 > Hola, por favor desactiven ModSecurity para el dominio hostalsantaelena.cl
-> (o al menos para la ruta /pago/retorno). Transbank Webpay devuelve al
-> cliente con un POST a esa ruta y el filtro puede bloquearlo. Gracias.
+> (o al menos para las rutas /pago/retorno y /pago/confirmacion). Flow
+> devuelve al cliente y avisa los pagos con un POST a esas rutas y el filtro
+> puede bloquearlo. Gracias.
 
 ## 2. Activar el certificado SSL (https)
 
@@ -67,7 +68,9 @@ En "Environment variables" → **Add variable**, una por una:
 | `BASE_URL` | `https://hostalsantaelena.cl` |
 | `DATA_DIR` | `/home/USUARIO/santaelena-data` |
 | `TAREAS_SECRET` | una frase larga inventada por ti, sin espacios (ej. `nubes-araucaria-2026-copihue-llaima`) |
-| `WEBPAY_ENV` | `integracion` |
+| `FLOW_ENV` | `sandbox` |
+| `FLOW_API_KEY` | la apiKey de sandbox de Flow |
+| `FLOW_SECRET_KEY` | la secretKey de sandbox de Flow |
 | `INICIAR_BASE` | `1` (solo la primera vez) |
 | `ADMIN_EMAIL` | tu correo (solo la primera vez) |
 | `ADMIN_PASSWORD` | una contraseña de 10 o más caracteres (solo la primera vez) |
@@ -103,10 +106,11 @@ En el panel:
 
 ## 8. Probar un pago (sin cobrar)
 
-Haz una reserva en el sitio. En Webpay de prueba usa la tarjeta de prueba de
-Transbank: VISA `4051 8856 0044 6623`, CVV `123`, cualquier fecha futura;
-RUT `11.111.111-1`, clave `123`. Revisa la reserva en el panel: pago,
-comisión y neto.
+Con `FLOW_ENV=sandbox`, haz una reserva en el sitio y paga en la página de
+prueba de Flow con los datos de prueba que indica Flow en su documentación
+(developers.flow.cl). Revisa la reserva en el panel: pago, comisión y neto.
+Para que una reserva cobre en línea, en Panel → Cobros → "Cómo se cobra" debe
+estar elegido el anticipo o el pago total.
 
 ## Actualizar el sitio más adelante
 
@@ -127,11 +131,14 @@ Nunca borres ni reemplaces `santaelena-data`: ahí están las reservas.
   `reservas.db-wal` y `reservas.db-shm`, copia el respaldo elegido desde
   `respaldos/` y renómbralo `reservas.db`. Luego **Start App**.
 
-## Cuando tengas Webpay de producción
+## Pasar Flow a producción
 
-Transbank te entrega el código de comercio y la llave. En Setup Node.js App:
-`WEBPAY_ENV=produccion`, `WEBPAY_COMMERCE_CODE=…`, `WEBPAY_API_KEY=…` →
-Restart. Desde ese momento los pagos son reales.
+Cuando las pruebas en sandbox funcionen, en Flow (cuenta real, no sandbox) ve a
+Mi cuenta → Integraciones y copia la apiKey y la secretKey de producción. En
+Setup Node.js App cambia `FLOW_ENV=produccion`, `FLOW_API_KEY=…` y
+`FLOW_SECRET_KEY=…` → Restart. Desde ese momento los pagos son reales.
+Las devoluciones se hacen desde el panel de Flow; en el panel del hostal la
+devolución queda marcada como "devolver manualmente".
 
 ## Correos de confirmación (Resend)
 

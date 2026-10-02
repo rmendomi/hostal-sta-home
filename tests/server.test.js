@@ -4,7 +4,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../server/index.js';
-import { createWebpay } from '../server/payments/webpay.js';
+import { createFlow, flowSignature } from '../server/payments/flow.js';
+import { createHmac } from 'node:crypto';
 import { addDays, today } from '../core/dates.js';
 
 let app; let base; let dir;
@@ -101,25 +102,58 @@ test('panel: exige sesión y permite gestionar', async () => {
   assert.equal(fake.status, 400);
 });
 
-test('Webpay: forma de las llamadas a la API', async () => {
+test('Flow: firma, creación del pago y estados', async () => {
+  // Firma según la documentación: parámetros ordenados, "nombrevalor" concatenado, HMAC-SHA256.
+  const sig = flowSignature({ currency: 'CLP', amount: 5000, apiKey: 'K' }, 'secreto');
+  assert.equal(sig, createHmac('sha256', 'secreto').update('amount5000apiKeyKcurrencyCLP').digest('hex'));
   const calls = [];
+  let status = 2;
   const fakeFetch = async (url, opts) => {
     calls.push({ url, ...opts });
-    if (opts.method === 'POST' && url.endsWith('/transactions')) return new Response(JSON.stringify({ token: 'tok123', url: 'https://webpay3gint.transbank.cl/webpayserver/initTransaction' }));
-    if (opts.method === 'PUT') return new Response(JSON.stringify({ vci: 'TSY', amount: 27000, status: 'AUTHORIZED', buy_order: 'SEABC', card_detail: { card_number: '6623' }, authorization_code: '1213', payment_type_code: 'VD', response_code: 0, installments_number: 0 }));
-    if (url.endsWith('/refunds')) return new Response(JSON.stringify({ type: 'REVERSED' }));
-    return new Response('{}', { status: 404 });
+    if (url.endsWith('/payment/create')) return new Response(JSON.stringify({ url: 'https://sandbox.flow.cl/app/web/pay.php', token: 'tok123', flowOrder: 99 }));
+    if (url.includes('/payment/getStatus')) return new Response(JSON.stringify({ flowOrder: 99, commerceOrder: 'SEABC', status, amount: 27000, paymentData: { media: 'Webpay', fee: 937, balance: 26063 } }));
+    return new Response('{"message":"no"}', { status: 400 });
   };
-  const wp = createWebpay({ fetchImpl: fakeFetch });
-  const c = await wp.create({ buyOrder: 'SEABC', sessionId: 's1', amount: 27000, returnUrl: 'https://x/pago/retorno' });
-  assert.equal(c.token, 'tok123');
-  assert.equal(calls[0].url, 'https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions');
-  assert.equal(calls[0].headers['Tbk-Api-Key-Id'], '597055555532');
-  assert.deepEqual(JSON.parse(calls[0].body), { buy_order: 'SEABC', session_id: 's1', amount: 27000, return_url: 'https://x/pago/retorno' });
-  const r = await wp.commit('tok123');
-  assert.equal(r.paymentTypeCode, 'VD');
-  assert.equal(r.cardLast4, '6623');
-  assert.equal(calls[1].method, 'PUT');
-  assert.equal((await wp.refund('tok123', 1000)).ok, true);
-  assert.throws(() => createWebpay({ environment: 'produccion' }), /Faltan/);
+  const fl = createFlow({ apiKey: 'K', secretKey: 'secreto', fetchImpl: fakeFetch });
+  const c = await fl.create({ buyOrder: 'SEABC', amount: 27000, returnUrl: 'https://x/pago/retorno', confirmUrl: 'https://x/pago/confirmacion', email: 'a@b.cl', subject: 'Reserva' });
+  assert.equal(c.url, 'https://sandbox.flow.cl/app/web/pay.php?token=tok123');
+  assert.equal(calls[0].url, 'https://sandbox.flow.cl/api/payment/create');
+  const sent = Object.fromEntries(new URLSearchParams(calls[0].body));
+  assert.equal(sent.commerceOrder, 'SEABC');
+  assert.equal(sent.urlConfirmation, 'https://x/pago/confirmacion');
+  const { s: firma, ...resto } = sent;
+  assert.equal(firma, flowSignature(resto, 'secreto'));
+  const ok = await fl.commit('tok123');
+  assert.equal(ok.status, 'AUTHORIZED');
+  assert.equal(ok.fee, 937);
+  assert.equal(ok.media, 'Webpay');
+  assert.match(calls[1].url, /^https:\/\/sandbox\.flow\.cl\/api\/payment\/getStatus\?/);
+  status = 1; assert.equal((await fl.commit('tok123')).status, 'PENDING');
+  status = 3; assert.equal((await fl.commit('tok123')).status, 'FAILED');
+  status = 4; assert.equal((await fl.commit('tok123')).status, 'ABORTED');
+  assert.throws(() => createFlow({ environment: 'produccion' }), /Faltan/);
 });
+
+test('confirmación de la pasarela y regreso del huésped: el pago se registra una sola vez', async () => {
+  const c = await post('/api/public/createBooking', { checkin: d(30), checkout: d(32), items: [{ roomId: 'hab-twin', adults: 2 }], guest, acceptTerms: true });
+  const { booking, token } = c.body;
+  const p = await post('/api/public/startPayment', { code: booking.code, token });
+  const tx = p.body.token;
+  // El huésped paga; la pasarela avisa al servidor antes de que él vuelva.
+  await fetch(`${base}/pago-simulado/${tx}`, { method: 'POST', body: new URLSearchParams({ r: 'debit' }), redirect: 'manual' });
+  const conf = await fetch(`${base}/pago/confirmacion`, { method: 'POST', body: new URLSearchParams({ token: tx }) });
+  assert.equal(conf.status, 200);
+  const [back1, back2] = await Promise.all([1, 2].map(() => fetch(`${base}/pago/retorno?token=${tx}`, { redirect: 'manual' })));
+  assert.match(back1.headers.get('location'), /\/autorizado$/);
+  assert.match(back2.headers.get('location'), /\/autorizado$/);
+  const v = await post('/api/public/getBooking', { code: booking.code, token });
+  assert.equal(v.body.booking.status, 'confirmada');
+  assert.equal(v.body.booking.amountPaid, booking.depositAmount);
+  // Anulación en la pasarela: la reserva sigue pendiente.
+  const c2 = await post('/api/public/createBooking', { checkin: d(40), checkout: d(41), items: [{ roomId: 'hab-twin', adults: 2 }], guest, acceptTerms: true });
+  const p2 = await post('/api/public/startPayment', { code: c2.body.booking.code, token: c2.body.token });
+  const g2 = await fetch(`${base}/pago-simulado/${p2.body.token}`, { method: 'POST', body: new URLSearchParams({ r: 'abort' }), redirect: 'manual' });
+  const r2 = await fetch(base + g2.headers.get('location'), { redirect: 'manual' });
+  assert.match(r2.headers.get('location'), /\/anulado$/);
+});
+
