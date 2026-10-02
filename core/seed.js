@@ -112,7 +112,7 @@ export const seedRooms = [
     description: 'Independiente de la casa, con cama doble, una cama de una plaza, baño y cocina propios. Para familias o estadías largas.',
     sizeM2: null, beds: '1 cama doble y 1 cama de una plaza', bathroom: 'privado', kitchen: true, view: '',
     baseOccupancy: 2, maxGuests: 3, baseRate: 55000, extraGuestFee: 10000, minNights: 1,
-    amenities: [...COMMON, 'Baño privado', 'Cocina propia'],
+    amenities: [...COMMON.filter((a) => a !== 'Desayuno incluido'), 'Baño privado', 'Cocina propia'],
     photos: [], active: true, sort: 5, dataStatus: 'confirmado', rateStatus: 'estimada',
   },
 ];

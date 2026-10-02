@@ -275,7 +275,7 @@ function viewHome(main) {
   <section class="wrap section" id="la-casa" aria-labelledby="serv-h">
     <div class="section-head"><h2 class="h2" id="serv-h">La casa</h2><p>Lo que viene con tu estadía y lo que puedes pedir.</p></div>
     <ul class="services">
-      ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En todas las habitaciones y la cabaña.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
+      ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En las cuatro habitaciones de la casa.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
         .map(([i, t, d]) => html`<li>${icon(i)}<div><strong>${t}</strong><span>${d}</span></div></li>`)}
     </ul>
     ${house.length ? html`<div class="house-photos n${Math.min(house.length, 5)}">${house.slice(0, 5).map((p, i) => html`<button type="button" class="hp" data-house="${i}" aria-label="Ampliar foto: ${p.alt || 'la casa'}">${photoImg(p, 'La casa', { sizes: i === 0 ? '(max-width: 760px) 100vw, 560px' : '(max-width: 760px) 50vw, 280px' })}${i === 4 && house.length > 5 ? html`<span class="hp-more">+${house.length - 5} fotos</span>` : ''}</button>`)}</div>` : ''}
@@ -284,7 +284,7 @@ function viewHome(main) {
   <section class="wrap section" id="habitaciones" aria-labelledby="hab-h">
     <div class="section-head">
       <h2 class="h2" id="hab-h">Habitaciones</h2>
-      <p>Todas con desayuno, calefacción, TV y wifi. Precio por noche para dos personas, desde ${clp(minRate)} con IVA incluido.</p>
+      <p>Las habitaciones incluyen desayuno y la cabaña tiene cocina propia. Todas con calefacción, TV y wifi. Precio por noche para dos personas, desde ${clp(minRate)} con IVA incluido.</p>
     </div>
     <div class="rooms">
       ${rooms.map((r) => html`<article class="room">
@@ -328,9 +328,13 @@ function viewHome(main) {
     </dl>
   </section>
 
-  <section class="wrap section" id="preguntas" aria-labelledby="faq-h">
-    <div class="section-head"><h2 class="h2" id="faq-h">Preguntas frecuentes</h2></div>
-    <div class="faq">${faq(b).map(([q, a]) => html`<details><summary>${q}</summary><p>${a}</p></details>`)}</div>
+  <section class="wrap section faq-wrap" id="preguntas" aria-labelledby="faq-h">
+    <div class="section-head faq-intro">
+      <h2 class="h2" id="faq-h">Preguntas frecuentes</h2>
+      <p>Lo que más nos preguntan antes de reservar. Si te queda alguna duda, escríbenos y te respondemos.</p>
+      ${b.whatsapp ? html`<a class="btn btn-ghost btn-sm" href="${waHref(b)}" target="_blank" rel="noopener">${icon('chat')}Preguntar por WhatsApp</a>` : ''}
+    </div>
+    <div class="faq">${faq(b).map(([q, a]) => html`<details><summary><span>${q}</span><span class="faq-ic" aria-hidden="true"></span></summary><p>${a}</p></details>`)}</div>
   </section>`;
 
   bindSearchBar(main, s, startSearch);
@@ -355,7 +359,7 @@ function faq(b) {
     ['¿Cómo llego?', `Estamos en ${b.address}, en el sector poniente de Temuco, cerca del camino Temuco–Labranza. El botón "Cómo llegar" abre Google Maps con la ruta hasta la puerta.`],
     ['¿A qué hora puedo llegar y hasta qué hora me puedo quedar?', `La llegada es desde las ${b.checkinFrom} y la salida hasta las ${b.checkoutUntil}. La recepción está abierta las 24 horas, así que puedes llegar tarde sin problema.`],
     ['¿Tienen estacionamiento?', 'Sí, dentro de la propiedad.'],
-    ['¿El desayuno está incluido?', 'Sí, en todas las habitaciones y en la cabaña. También preparamos almuerzo y cena caseros a pedido, que se pagan en el hostal.'],
+    ['¿El desayuno está incluido?', 'Sí, en las cuatro habitaciones de la casa. La cabaña no incluye desayuno: tiene cocina propia para que prepares lo tuyo. También preparamos almuerzo y cena caseros a pedido, que se pagan en el hostal.'],
     ['¿Cómo se paga la reserva?', `${payText()} Tu tarjeta la ingresas en la página de ${S.info.payment?.providerName || 'Webpay'}: nosotros nunca vemos sus datos.`],
     ['¿Puedo cancelar o cambiar las fechas?', `Puedes cancelar gratis hasta ${plural(S.info.cancellation.freeUntilDays, 'día', 'días')} antes de la llegada y te devolvemos todo lo pagado. Las fechas se cambian en línea, desde "Mi reserva", hasta ${plural(S.info.modification?.freeUntilDays ?? 0, 'día', 'días')} antes.`],
     ['¿Aceptan mascotas?', pets || 'Escríbenos por WhatsApp antes de reservar y lo conversamos.'],

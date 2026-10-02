@@ -610,11 +610,27 @@ input:hover, select:hover, textarea:hover { border-color: var(--ink-3); }
   .house-photos.n4 .hp:last-child { grid-column: auto; }
 }
 
-.faq { display: grid; gap: 8px; max-width: 820px; }
-.faq details { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r); padding: 0 18px; }
-.faq summary { cursor: pointer; padding: 16px 0; font-weight: 600; list-style-position: outside; }
-.faq details[open] summary { color: var(--alerce); }
-.faq details p { margin: 0 0 16px; color: var(--ink-2); }
+/* Preguntas frecuentes: introducción a la izquierda y lista con líneas finas, como "Antes de reservar". */
+.faq-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 24px 56px; align-items: start; }
+.faq-intro { display: block; margin: 0; position: sticky; top: 96px; }
+.faq-intro p { margin: 14px 0 18px; }
+.faq { border-bottom: 1px solid var(--line); }
+.faq details { border-top: 1px solid var(--line); }
+.faq summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 0; cursor: pointer; list-style: none; font: 700 20px/1.25 var(--f-display); transition: color .2s; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary:hover, .faq details[open] summary { color: var(--alerce); }
+.faq-ic { position: relative; flex: none; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; transition: border-color .2s, background .2s; }
+.faq-ic::before, .faq-ic::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 1.6px; margin: -.8px 0 0 -5.5px; background: currentColor; border-radius: 1px; transition: transform .3s var(--ease-out); }
+.faq-ic::after { transform: rotate(90deg); }
+.faq details[open] .faq-ic { border-color: var(--alerce); background: var(--alerce-soft); }
+.faq details[open] .faq-ic::after { transform: rotate(0deg); }
+.faq details p { margin: -4px 0 20px; padding-right: 48px; color: var(--ink-2); max-width: 40em; }
+@media (max-width: 760px) {
+  .faq-wrap { grid-template-columns: 1fr; }
+  .faq-intro { position: static; }
+  .faq summary { font-size: 18px; }
+  .faq details p { padding-right: 0; }
+}
 
 .gallery { position: relative; }
 .gallery .g-prev, .gallery .g-next { position: absolute; top: 50%; transform: translateY(-50%); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow); }
