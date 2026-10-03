@@ -273,7 +273,7 @@ function viewHome(main) {
   <section class="hero" aria-labelledby="hero-h">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <h1 id="hero-h"><span class="eyebrow">Hostal en Temuco · Región de la Araucanía</span><span class="display">Una casa abrigada para conocer <em>el sur.</em></span></h1>
+        <h1 id="hero-h"><span class="eyebrow">Hostal en Temuco · Región de la Araucanía</span><span class="display">Una casa cálida y acogedora para conocer <em>el sur.</em></span></h1>
         <p class="lede">Un hostal familiar de madera en Villa Santa Elena de Maipo, al poniente de Temuco: cuatro habitaciones y una cabaña. Reservas directo con nosotros y ves cada peso antes de pagar.</p>
         <div class="hero-links">
           <a class="rating" href="${b.mapsUrl}" target="_blank" rel="noopener">${icon('star')}<strong>${String(b.googleRating).replace('.', ',')}</strong> · ${b.googleReviews} opiniones en Google</a>
@@ -292,7 +292,7 @@ function viewHome(main) {
   </section>
 
   <section class="wrap section" id="la-casa" aria-labelledby="serv-h">
-    <div class="section-head"><h2 class="h2" id="serv-h">La casa</h2><p>Lo que viene con tu estadía y lo que puedes pedir.</p></div>
+    <div class="section-head"><h2 class="h2" id="serv-h">La casa</h2><p>Lo que incluye tu estadía y los servicios que puedes solicitar.</p></div>
     <ul class="services">
       ${[['clock', 'Recepción 24 horas', 'Llega a la hora que necesites.'], ['coffee', 'Desayuno incluido', 'En las cuatro habitaciones de la casa.'], ['car', 'Estacionamiento', 'Dentro de la propiedad.'], ['wifi', 'Wifi', 'En habitaciones y áreas comunes.'], ['flame', 'Calefacción y TV', 'Para las noches frías del sur.'], ['pot', 'Almuerzo y cena', 'Comida casera a pedido, se paga en el hostal.'], ['leaf', 'Lavandería', 'A pedido durante tu estadía.'], ['house', 'Cabaña con cocina', 'Independiente, con baño y cocina propios.']]
         .map(([i, t, d]) => html`<li>${icon(i)}<div><strong>${t}</strong><span>${d}</span></div></li>`)}
@@ -610,8 +610,8 @@ async function viewCheckout(main) {
     if (x.unit !== 'persona_dia') return html`<label class="extra"><input type="checkbox" value="${x.id}" ${S.extras.has(x.id) ? 'checked' : ''}><span class="extra-box"><strong>${x.name}</strong><span>${x.description}</span><span class="extra-price">${clp(x.amount)} ${UNIT_LABEL[x.unit]}</span></span></label>`;
     const st = S.extraDays[x.id];
     return html`<div class="extra extra-days ${st.days.size ? 'is-on' : ''}" data-xdays="${x.id}">
-      <div class="extra-box"><strong>${x.name}</strong><span>${x.description}</span><span class="extra-price">${clp(x.amount)} ${UNIT_LABEL[x.unit]}</span></div>
-      <p class="xd-q" id="xd-${x.id}">¿Qué días?</p>
+      <button type="button" class="extra-box xd-all" aria-pressed="${st.days.size > 0}"><strong>${x.name}</strong><span>${x.description}</span><span class="extra-price">${clp(x.amount)} ${UNIT_LABEL[x.unit]}</span></button>
+      <p class="xd-q" id="xd-${x.id}">¿Qué días? Al marcar arriba se eligen todos; aquí puedes quitar los que no quieras.</p>
       <div class="day-chips" role="group" aria-labelledby="xd-${x.id}">${days.map((d) => html`<button type="button" class="day-chip" data-day="${d}" aria-pressed="${st.days.has(d)}">${human(d, { weekday: true })}</button>`)}</div>
       ${guests > 1 ? html`<div class="xd-people" ${st.days.size ? '' : 'hidden'}>${guestStepper({ id: `xp-${x.id}`, label: 'Personas', sub: 'Cuántos comen cada día marcado', value: st.people, min: 1, max: guests })}</div>` : ''}
     </div>`;
@@ -681,14 +681,23 @@ async function viewCheckout(main) {
   $$('.extra input', main).forEach((c) => c.addEventListener('change', () => { if (c.checked) S.extras.add(c.value); else S.extras.delete(c.value); redraw(); }));
   $$('[data-xdays]', main).forEach((box) => {
     const st = S.extraDays[box.dataset.xdays];
-    box.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-day]');
-      if (!b) return;
-      if (st.days.has(b.dataset.day)) st.days.delete(b.dataset.day); else st.days.add(b.dataset.day);
-      b.setAttribute('aria-pressed', st.days.has(b.dataset.day));
+    const sync = () => {
+      $$('[data-day]', box).forEach((c) => c.setAttribute('aria-pressed', st.days.has(c.dataset.day)));
+      $('.xd-all', box).setAttribute('aria-pressed', st.days.size > 0);
       box.classList.toggle('is-on', st.days.size > 0);
       const p = $('.xd-people', box); if (p) p.hidden = !st.days.size;
       redraw();
+    };
+    box.addEventListener('click', (e) => {
+      // Marcar la tarjeta elige todos los días; desmarcarla los quita todos.
+      if (e.target.closest('.xd-all')) {
+        if (st.days.size) st.days.clear(); else days.forEach((d) => st.days.add(d));
+        return sync();
+      }
+      const b = e.target.closest('[data-day]');
+      if (!b) return;
+      if (st.days.has(b.dataset.day)) st.days.delete(b.dataset.day); else st.days.add(b.dataset.day);
+      sync();
     });
     bindSteppers(box, (_, v) => { st.people = v; redraw(); });
   });
